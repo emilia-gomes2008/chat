@@ -1,11 +1,11 @@
 # YouTube Live Chat Overlay
 
-Overlay de chat ao vivo do YouTube para usar no OBS Studio. Exibe mensagens com avatar, nome colorido por função e texto — igual ao chat do YouTube, mas estilizado para stream.
+Overlay de chat ao vivo do YouTube para usar no OBS Studio. Exibe mensagens com avatar, nome colorido por função e texto - igual ao chat do YouTube, mas estilizado para stream.
 
 **Cores:**
-- 🔴 **Vermelho** — espectadores comuns
-- 🔵 **Azul** — moderadores
-- 🟢 **Verde** — membros do canal
+- 🔴 **Vermelho** - espectadores comuns
+- 🔵 **Azul** - moderadores
+- 🟢 **Verde** - membros do canal
 
 ## O que não consegui fazer:
 - Mensagens que foram retiradas pelo automod e voltaram aparecerem
@@ -15,7 +15,7 @@ Overlay de chat ao vivo do YouTube para usar no OBS Studio. Exibe mensagens com 
 
 ## Requisitos
 
-- [Node.js](https://nodejs.org) (versão 18 ou superior — baixe a versão LTS)
+- [Node.js](https://nodejs.org) (versão 18 ou superior - baixe a versão LTS)
 - OBS Studio (qualquer versão recente)
 
 ---
@@ -65,15 +65,15 @@ Abra o navegador em `http://localhost:3000`.
 Você verá a tela de configuração:
 
 - Escolha o tipo de ID:
-  - **Channel ID** — o ID do seu canal (começa com `UC`, ex: `UCxxxxxxxxxxxxxxxx`). O sistema encontra a live automaticamente.
-  - **Video / Live ID** — o ID de um vídeo específico (aparece na URL da live, ex: `dQw4w9WgXcQ`).
+  - **Channel ID** - o ID do seu canal (começa com `UC`, ex: `UCxxxxxxxxxxxxxxxx`). O sistema encontra a live automaticamente.
+  - **Video / Live ID** - o ID de um vídeo específico (aparece na URL da live, ex: `dQw4w9WgXcQ`).
 - Cole o ID no campo e clique em **Generate OBS URL**.
 - Copie a URL gerada.
 
 **Como encontrar seu Channel ID:**
 1. Acesse seu canal no YouTube
 2. Clique em **Personalizar canal** → **Informações básicas**
-3. Role até "ID do canal" — começa com `UC`
+3. Role até "ID do canal" - começa com `UC`
 
 **3. Adicione no OBS**
 
@@ -81,7 +81,7 @@ Você verá a tela de configuração:
 2. Escolha **Navegador** (Browser Source)
 3. Cole a URL copiada no campo **URL**
 4. Configure o tamanho: **Largura 1920 × Altura 1080** (ou o tamanho da sua cena)
-5. **Importante:** desmarque a opção *"Atualizar navegador quando a cena ficar ativa"* — isso evita que o chat reinicie ao trocar de cena
+5. **Importante:** desmarque a opção *"Atualizar navegador quando a cena ficar ativa"* - isso evita que o chat reinicie ao trocar de cena
 6. Clique em OK
 
 ---
@@ -93,7 +93,7 @@ A maioria dos overlays de chat para porque roda completamente no navegador. Quan
 Neste projeto:
 
 - A **conexão com o YouTube fica no servidor Node.js**, que roda separado do OBS
-- O OBS só exibe a interface — se o navegador cair, ele se **reconecta automaticamente** ao servidor local
+- O OBS só exibe a interface - se o navegador cair, ele se **reconecta automaticamente** ao servidor local
 - O servidor tem **reconexão automática** com o YouTube: se a live cair ou a internet falhar, ele tenta novamente em intervalos crescentes (5 s, 10 s, 20 s… até 60 s)
 
 ---
@@ -104,7 +104,7 @@ Neste projeto:
 |---|---|
 | "npm não é reconhecido" | Instale o Node.js em [nodejs.org](https://nodejs.org) e reinicie o terminal |
 | Chat não aparece | Verifique se o canal está ao vivo no momento |
-| Avatares não carregam | Normal em alguns canais — o nome e a mensagem ainda aparecem |
+| Avatares não carregam | Normal em alguns canais - o nome e a mensagem ainda aparecem |
 | Chat parou de atualizar | O servidor reconecta sozinho. Veja o terminal para acompanhar o status |
 | Porta 3000 ocupada | Feche outros programas usando a porta 3000, ou altere o número no final do `server.js` |
 
