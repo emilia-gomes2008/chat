@@ -1,0 +1,305 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root { --chat-font-size: 16px; }
+
+body {
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #111;
+  color: #fff;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.overlay-mode { background: transparent; }
+.hidden { display: none !important; }
+
+/* ── Setup screen ─────────────────────────────────────────────── */
+#setup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 28px;
+  width: 500px;
+  max-width: 95vw;
+  margin: 20px 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #666;
+  margin-bottom: 8px;
+  margin-top: 18px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field-group select,
+.field-group input[type="text"] {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+.field-group select:focus,
+.field-group input[type="text"]:focus { border-color: #e03030; }
+.field-group select option { background: #1a1a1a; }
+
+.size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #888;
+  font-size: 13px;
+}
+.size-row input[type="range"] {
+  flex: 1;
+  accent-color: #e03030;
+}
+#font-size-val { min-width: 30px; color: #ccc; font-size: 13px; }
+
+/* Font preview */
+.font-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 12px;
+  padding: 10px 14px 12px 10px;
+  margin: 12px 0 18px;
+}
+.fp-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #9b59b6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.fp-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fp-name {
+  font-weight: 700;
+  background: #dd2222;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: inherit;
+  width: fit-content;
+}
+.fp-text {
+  color: #ececec;
+  font-size: inherit;
+}
+
+#go-btn {
+  width: 100%;
+  background: #e03030;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s;
+  margin-bottom: 16px;
+}
+#go-btn:hover { background: #c02020; }
+
+.result {
+  background: #0e0e0e;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.result p { color: #aaa; font-size: 13px; margin-bottom: 10px; }
+.result strong { color: #fff; }
+
+.url-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.url-row code {
+  flex: 1;
+  color: #7ab8ff;
+  font-size: 12px;
+  word-break: break-all;
+  background: #161616;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #2a2a2a;
+  display: block;
+}
+
+#copy-btn {
+  background: #2a2a2a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+#copy-btn:hover { background: #444; }
+
+.preview-link { color: #7ab8ff; font-size: 12.5px; text-decoration: none; }
+.preview-link:hover { text-decoration: underline; }
+
+.legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: #fff;
+}
+.badge.chatter { background: #dd2222; }
+.badge.mod     { background: #1a5fff; }
+.badge.member  { background: #1a9e45; }
+
+/* ── Chat overlay ─────────────────────────────────────────────── */
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px;
+  pointer-events: none;
+}
+
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+/* ── Message card (two-row layout) ───────────────────────────── */
+.message {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 4px;
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: 14px;
+  padding: 8px 14px 10px 8px;
+  max-width: 100%;
+  width: fit-content;
+  animation: appear 0.22s ease forwards;
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.avatar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: start;
+  margin-top: 3px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #222;
+}
+
+/* Header: name badge + optional superchat amount */
+.msg-header {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-weight: 700;
+  font-size: var(--chat-font-size);
+  padding: 2px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-icon {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.message.chatter .name { background: #dd2222; color: #fff; }
+.message.mod     .name { background: #1a5fff; color: #fff; }
+.message.member  .name { background: #1a9e45; color: #fff; }
+
+/* Message text */
+.text {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--chat-font-size);
+  color: #ececec;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* ── Superchat ────────────────────────────────────────────────── */
+.message.superchat {
+  background: var(--sc-color, #1565c0);
+}
+
+.message.superchat .name { background: rgba(0,0,0,0.25); }
+
+.sc-amount {
+  font-size: var(--chat-font-size);
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.25);
+  padding: 2px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+.message.superchat .text { color: #fff; }

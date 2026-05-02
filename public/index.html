@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Live Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Setup screen ─────────────────────────────────────────── -->
+  <div id="setup">
+    <div class="card">
+      <div class="logo">
+        <svg width="28" height="20" viewBox="0 0 28 20" fill="none">
+          <rect width="28" height="20" rx="4" fill="#FF0000"/>
+          <polygon points="11,5 11,15 20,10" fill="white"/>
+        </svg>
+        <span>Live Chat Overlay</span>
+      </div>
+
+      <div class="field-group">
+        <select id="id-type">
+          <option value="channelId">Channel ID (UCxxxxxxxx)</option>
+          <option value="liveId">Video / Live ID</option>
+        </select>
+        <input id="id-value" type="text" placeholder="Cola o ID aqui…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="section-title">Fonte</div>
+      <div class="field-group">
+        <select id="font-family"><option value="Segoe UI">Segoe UI</option></select>
+        <div class="size-row">
+          <span>Tamanho</span>
+          <input type="range" id="font-size" min="10" max="28" value="16">
+          <span id="font-size-val">16px</span>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div id="font-preview" class="font-preview">
+        <div class="fp-avatar"></div>
+        <div class="fp-content">
+          <span class="fp-name">@ibexis</span>
+          <span class="fp-text">Exemplo de mensagem no chat 🔥</span>
+        </div>
+      </div>
+
+      <button id="go-btn">Gerar URL para o OBS</button>
+
+      <div id="result" class="result hidden">
+        <p>Adiciona como <strong>Browser Source</strong> no OBS (1920×1080):</p>
+        <div class="url-row">
+          <code id="url-text"></code>
+          <button id="copy-btn">Copiar</button>
+        </div>
+        <a id="preview-link" href="#" target="_blank" class="preview-link">Abrir prévia no browser →</a>
+      </div>
+
+      <div class="legend">
+        <span class="badge chatter">Chatter</span>
+        <span class="badge mod">Moderador</span>
+        <span class="badge member">Membro</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat overlay ─────────────────────────────────────────── -->
+  <div id="overlay" class="hidden">
+    <div id="messages"></div>
+  </div>
+
+  <script src="chat.js"></script>
+</body>
+</html>
