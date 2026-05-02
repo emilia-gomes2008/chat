@@ -12,7 +12,14 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public'), {
+  etag: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  },
+}));
 
 // Fetch a YouTube channel avatar by @handle — used by demo mode
 function fetchAvatar(handle, res) {
@@ -91,6 +98,7 @@ let liveChat = null;
 let currentConfig = null;
 let retryTimer = null;
 let retryCount = 0;
+let sessionId = 0; // incremented on each startChat to discard stale events
 
 function broadcast(data) {
   const msg = JSON.stringify(data);
@@ -99,34 +107,74 @@ function broadcast(data) {
   }
 }
 
+// ── Emoji image cache (fetched server-side → sent as base64) ─────
+const emojiCache = new Map();
+
+function fetchBase64(url) {
+  if (emojiCache.has(url)) return Promise.resolve(emojiCache.get(url));
+  return new Promise((resolve) => {
+    const req = https.get(url, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const type = res.headers['content-type'] || 'image/png';
+        const data = `data:${type};base64,${Buffer.concat(chunks).toString('base64')}`;
+        if (emojiCache.size < 1000) emojiCache.set(url, data);
+        resolve(data);
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(4000, () => { req.destroy(); resolve(null); });
+  });
+}
+
 // ── YouTube chat connection with auto-retry ───────────────────────
 async function startChat(config) {
   if (liveChat) { liveChat.stop(); liveChat = null; }
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
 
   currentConfig = config;
+  const mySession = ++sessionId;
 
   try {
     liveChat = new LiveChat(config);
 
-    liveChat.on('chat', (item) => {
+    liveChat.on('chat', async (item) => {
+      if (sessionId !== mySession) return;
       retryCount = 0;
+
+      console.log('[ITEM]', JSON.stringify({
+        id: item.id,
+        author: item.author?.name,
+        channelId: item.author?.channelId,
+        isHeld: item.isHeld,
+        isOwner: item.isOwner,
+        isModerator: item.isModerator,
+        isMembership: item.isMembership,
+        msgLength: item.message?.length,
+        allKeys: Object.keys(item),
+      }));
 
       const isMod    = item.isModerator  || false;
       const isMember = item.isMembership || false;
       const role = isMod ? 'mod' : isMember ? 'member' : 'chatter';
 
-      const text = (item.message || [])
-        .map(p => {
-          if (p.text)      return p.text;
-          if (p.emojiText) return p.emojiText;
-          if (p.alt)       return p.alt;
-          return '';
-        })
-        .join('');
+      const rawParts = (item.message || []).map(p => {
+        if (p.isCustomEmoji && p.url) return { t: 'img', url: p.url, alt: p.alt || '' }; // custom channel emoji → fetch image
+        if (p.emojiText)              return { t: 'text', v: p.emojiText };               // standard Unicode emoji
+        if (p.url)                    return { t: 'img', url: p.url, alt: p.alt || '' }; // emoji without emojiText
+        if (p.text)                   return { t: 'text', v: p.text };
+        return null;
+      }).filter(Boolean);
 
-      // Superchats can have an empty message — don't filter them out
-      if (!text.trim() && !item.superchat) return;
+      const parts = await Promise.all(rawParts.map(async p => {
+        if (p.t !== 'img') return p;
+        const src = await fetchBase64(p.url);
+        return { t: 'img', src: src || null, alt: p.alt };
+      }));
+
+      const message = parts.map(p => p.v || p.alt || '').join('');
+      if (!message.trim() && !parts.some(p => p.t === 'img' && p.src) && !item.superchat) return;
 
       const avatarUrl = item.author.thumbnail?.url;
       const badgeUrl  = item.author.badge?.thumbnail?.url;
@@ -136,7 +184,9 @@ async function startChat(config) {
         author: item.author.name || 'Anonymous',
         avatar: avatarUrl ? `/proxy?url=${encodeURIComponent(avatarUrl)}` : '',
         badgeIcon: badgeUrl ? `/proxy?url=${encodeURIComponent(badgeUrl)}` : null,
-        message: text,
+        parts,
+        message,
+        timestamp: item.timestamp instanceof Date ? item.timestamp.getTime() : Date.now(),
         role,
         superchat: item.superchat
           ? { amount: item.superchat.amount, color: item.superchat.color }

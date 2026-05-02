@@ -7,6 +7,10 @@ Overlay de chat ao vivo do YouTube para usar no OBS Studio. Exibe mensagens com 
 - 🔵 **Azul** — moderadores
 - 🟢 **Verde** — membros do canal
 
+## O que não consegui fazer:
+- Mensagens que foram retiradas pelo automod e voltaram aparecerem
+- Emojis do Youtube e membros aparecerem
+
 ---
 
 ## Requisitos

@@ -74,17 +74,40 @@ async function runSetup() {
   }
   updatePreview();
 
+  // Saved channel buttons
+  let selectedChannelId   = 'UCmke4QQuseu1yjuDgbMYENw';
+  let selectedChannelType = 'channelId';
+
+  document.querySelectorAll('.channel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const isCustom = btn.dataset.id === 'custom';
+      document.getElementById('custom-channel').classList.toggle('hidden', !isCustom);
+
+      if (!isCustom) {
+        selectedChannelId   = btn.dataset.id;
+        selectedChannelType = btn.dataset.type;
+      }
+    });
+  });
+
   // Generate URL
   document.getElementById('go-btn').addEventListener('click', () => {
-    const type  = document.getElementById('id-type').value;
-    const value = document.getElementById('id-value').value.trim();
-    if (!value) { document.getElementById('id-value').focus(); return; }
+    const isCustom = document.getElementById('custom-channel').classList.contains('hidden') === false;
+    let type, value;
 
-    const p = new URLSearchParams({
-      [type]: value,
-      font:     fontSelect.value,
-      fontSize: sizeSlider.value,
-    });
+    if (isCustom) {
+      type  = document.getElementById('id-type').value;
+      value = document.getElementById('id-value').value.trim();
+      if (!value) { document.getElementById('id-value').focus(); return; }
+    } else {
+      type  = selectedChannelType;
+      value = selectedChannelId;
+    }
+
+    const p = new URLSearchParams({ [type]: value, font: fontSelect.value, fontSize: sizeSlider.value });
     const url = `${location.origin}/?${p.toString()}`;
     document.getElementById('url-text').textContent = url;
     document.getElementById('preview-link').href = url;
@@ -147,7 +170,7 @@ function runOverlay() {
       try {
         const msg = JSON.parse(data);
         if (msg.type === 'chat') addMessage(msg);
-      } catch { /* ignore */ }
+      } catch (e) { console.error('[chat]', e); }
     });
 
     ws.addEventListener('close', () => {
@@ -162,9 +185,10 @@ function runOverlay() {
 }
 
 // ── Render a message ──────────────────────────────────────────
-function addMessage({ author, avatar, message, role, badgeIcon, superchat }) {
+function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat, timestamp }) {
   const el = document.createElement('div');
   el.className = `message ${role}${superchat ? ' superchat' : ''}`;
+  el.dataset.ts = timestamp || Date.now();
   if (superchat) el.style.setProperty('--sc-color', SUPERCHAT_COLOURS[superchat.color] || '#1565c0');
 
   // Avatar
@@ -202,10 +226,35 @@ function addMessage({ author, avatar, message, role, badgeIcon, superchat }) {
   // Message text
   const text = document.createElement('span');
   text.className = 'text';
-  text.textContent = message;
+  const msgParts = Array.isArray(parts) ? parts : [];
+  if (msgParts.length) {
+    for (const p of msgParts) {
+      if (p.t === 'text') {
+        text.append(p.v ?? '');
+      } else if (p.t === 'img' && p.src) {
+        const em = document.createElement('img');
+        em.className = 'emoji-img';
+        em.alt = '';
+        em.src = p.src;
+        em.onerror = () => em.remove();
+        text.append(em);
+      }
+    }
+  } else {
+    text.textContent = message ?? '';
+  }
 
   el.append(img, header, text);
-  messagesEl.appendChild(el);
+
+  // Insert at correct timestamp position (handles approved moderated messages)
+  const ts = Number(el.dataset.ts);
+  const children = Array.from(messagesEl.children);
+  const after = children.findLast(c => Number(c.dataset.ts) <= ts);
+  if (after) {
+    after.after(el);
+  } else {
+    messagesEl.prepend(el);
+  }
 
   while (messagesEl.children.length > MAX_MESSAGES) {
     messagesEl.removeChild(messagesEl.firstChild);
