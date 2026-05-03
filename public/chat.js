@@ -3,8 +3,8 @@ const channelId = params.get('channelId');
 const liveId    = params.get('liveId');
 const MAX_MESSAGES = 30;
 
-const setupEl   = document.getElementById('setup');
-const overlayEl = document.getElementById('overlay');
+const setupEl    = document.getElementById('setup');
+const overlayEl  = document.getElementById('overlay');
 const messagesEl = document.getElementById('messages');
 
 // ── Role icons ────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const SUPERCHAT_COLOURS = {
   blue: '#1565c0', lightblue: '#00b0ff', green: '#00bfa5',
   yellow: '#ffb300', orange: '#e65100', magenta: '#ad1457', red: '#c62828',
 };
+
 
 // ── Avatar SVG fallback ───────────────────────────────────────
 const AVATAR_COLOURS = [
@@ -35,19 +36,68 @@ function makeAvatarSvg(name) {
 }
 
 // ── Mode ──────────────────────────────────────────────────────
+let currentBgValue = 'rgba(0,0,0,0.78)';
+function setMsgBg(css) {
+  currentBgValue = css;
+  document.documentElement.style.setProperty('--msg-bg', css);
+}
 if (channelId || liveId) {
-  applyFont();
+  applyStyles();
   runOverlay();
 } else {
   runSetup();
 }
 
-// ── Apply font from URL params ────────────────────────────────
-function applyFont() {
+// ── Style helpers ─────────────────────────────────────────────
+function setRoleColor(role, hex) {
+  document.documentElement.style.setProperty(`--color-${role}`, hex);
+}
+
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
+}
+
+// ── Apply styles from URL params (overlay mode) ───────────────
+function applyStyles() {
   const font = params.get('font');
   const size = params.get('fontSize');
   if (font) document.body.style.fontFamily = `'${font}', sans-serif`;
   if (size) document.body.style.setProperty('--chat-font-size', `${size}px`);
+
+  ['chatter', 'mod', 'member'].forEach(role => {
+    const hex = params.get(`color-${role}`);
+    if (hex) setRoleColor(role, `#${hex}`);
+  });
+
+  const msgBg = params.get('msgBg');
+  if (msgBg) {
+    setMsgBg(msgBg);
+  } else {
+    // backward-compat with old solid-only params
+    const msgColor   = params.get('msgColor');
+    const msgOpacity = params.get('msgOpacity');
+    if (msgColor) {
+      const r = parseInt(msgColor.slice(0, 2), 16);
+      const g = parseInt(msgColor.slice(2, 4), 16);
+      const b = parseInt(msgColor.slice(4, 6), 16);
+      const a = msgOpacity ? parseInt(msgOpacity) / 100 : 0.78;
+      if (!isNaN(r + g + b)) setMsgBg(`rgba(${r},${g},${b},${a})`);
+    }
+  }
+
+  const textColor = params.get('textColor');
+  if (textColor) document.documentElement.style.setProperty('--text-color', `#${textColor}`);
+
+  const msgRadius = params.get('msgRadius');
+  if (msgRadius) document.documentElement.style.setProperty('--msg-radius', `${msgRadius}px`);
+
+  const borderColor = params.get('borderColor');
+  const borderWidth = params.get('borderWidth') || '2';
+  if (borderColor) document.documentElement.style.setProperty('--msg-border', `${borderWidth}px solid #${borderColor}`);
 }
 
 // ── Setup screen ──────────────────────────────────────────────
@@ -74,7 +124,7 @@ async function runSetup() {
   }
   updatePreview();
 
-  // Saved channel buttons
+  // ── Channel buttons ───────────────────────────────────────
   let selectedChannelId   = 'UCmke4QQuseu1yjuDgbMYENw';
   let selectedChannelType = 'channelId';
 
@@ -82,10 +132,8 @@ async function runSetup() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
       const isCustom = btn.dataset.id === 'custom';
       document.getElementById('custom-channel').classList.toggle('hidden', !isCustom);
-
       if (!isCustom) {
         selectedChannelId   = btn.dataset.id;
         selectedChannelType = btn.dataset.type;
@@ -93,9 +141,174 @@ async function runSetup() {
     });
   });
 
-  // Generate URL
+  // ── Role colour pickers ───────────────────────────────────
+  const colorInputs = {
+    chatter: document.getElementById('color-chatter'),
+    mod:     document.getElementById('color-mod'),
+    member:  document.getElementById('color-member'),
+  };
+  Object.entries(colorInputs).forEach(([role, input]) => {
+    const swatch = document.getElementById(`preview-${role}`);
+    const apply = () => {
+      setRoleColor(role, input.value);
+      if (swatch) swatch.style.color = input.value;
+    };
+    input.addEventListener('input', apply);
+    apply();
+  });
+
+  // ── Background type tabs ──────────────────────────────────
+  let currentBgType = 'solid';
+  const bgPanels = {
+    solid:    document.getElementById('bg-panel-solid'),
+    gradient: document.getElementById('bg-panel-gradient'),
+    stripes:  document.getElementById('bg-panel-stripes'),
+    image:    document.getElementById('bg-panel-image'),
+  };
+
+  document.querySelectorAll('.bg-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.bg-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      Object.values(bgPanels).forEach(p => p.classList.add('hidden'));
+      currentBgType = tab.dataset.tab;
+      bgPanels[currentBgType].classList.remove('hidden');
+      applyBg();
+    });
+  });
+
+  // ── Solid controls ────────────────────────────────────────
+  const msgColorInput    = document.getElementById('msg-color');
+  const msgOpacitySlider = document.getElementById('msg-opacity');
+  const msgOpacityLabel  = document.getElementById('msg-opacity-val');
+
+  function applyBgSolid() {
+    setMsgBg(hexToRgba(msgColorInput.value, parseInt(msgOpacitySlider.value) / 100));
+  }
+  msgColorInput.addEventListener('input', applyBgSolid);
+  msgOpacitySlider.addEventListener('input', () => {
+    msgOpacityLabel.textContent = `${msgOpacitySlider.value}%`;
+    applyBgSolid();
+  });
+  applyBgSolid();
+
+  // ── Gradient controls ─────────────────────────────────────
+  const gradColor1       = document.getElementById('grad-color1');
+  const gradColor2       = document.getElementById('grad-color2');
+  const gradAngleSlider  = document.getElementById('grad-angle');
+  const gradAngleLabel   = document.getElementById('grad-angle-val');
+  const gradOpacity      = document.getElementById('grad-opacity');
+  const gradOpacityLabel = document.getElementById('grad-opacity-val');
+
+  function applyBgGradient() {
+    const a  = parseInt(gradOpacity.value) / 100;
+    const c1 = hexToRgba(gradColor1.value, a);
+    const c2 = hexToRgba(gradColor2.value, a);
+    setMsgBg(`linear-gradient(${gradAngleSlider.value}deg,${c1},${c2})`);
+  }
+  [gradColor1, gradColor2].forEach(inp => inp.addEventListener('input', applyBgGradient));
+  gradAngleSlider.addEventListener('input', () => {
+    gradAngleLabel.textContent = `${gradAngleSlider.value}°`;
+    applyBgGradient();
+  });
+  gradOpacity.addEventListener('input', () => {
+    gradOpacityLabel.textContent = `${gradOpacity.value}%`;
+    applyBgGradient();
+  });
+
+  // ── Stripes controls ──────────────────────────────────────
+  const stripeColor1      = document.getElementById('stripe-color1');
+  const stripeColor2      = document.getElementById('stripe-color2');
+  const stripeAngleSlider = document.getElementById('stripe-angle');
+  const stripeAngleLabel  = document.getElementById('stripe-angle-val');
+  const stripeWidthSlider = document.getElementById('stripe-width');
+  const stripeWidthLabel  = document.getElementById('stripe-width-val');
+  const stripeOpacity     = document.getElementById('stripe-opacity');
+  const stripeOpacityLabel = document.getElementById('stripe-opacity-val');
+
+  function applyBgStripes() {
+    const a  = parseInt(stripeOpacity.value) / 100;
+    const c1 = hexToRgba(stripeColor1.value, a);
+    const c2 = hexToRgba(stripeColor2.value, a);
+    const deg = stripeAngleSlider.value;
+    const w   = parseInt(stripeWidthSlider.value);
+    setMsgBg(`repeating-linear-gradient(${deg}deg,${c1} 0,${c1} ${w}px,${c2} ${w}px,${c2} ${w * 2}px)`);
+  }
+  [stripeColor1, stripeColor2].forEach(inp => inp.addEventListener('input', applyBgStripes));
+  stripeAngleSlider.addEventListener('input', () => {
+    stripeAngleLabel.textContent = `${stripeAngleSlider.value}°`;
+    applyBgStripes();
+  });
+  stripeWidthSlider.addEventListener('input', () => {
+    stripeWidthLabel.textContent = `${stripeWidthSlider.value}px`;
+    applyBgStripes();
+  });
+  stripeOpacity.addEventListener('input', () => {
+    stripeOpacityLabel.textContent = `${stripeOpacity.value}%`;
+    applyBgStripes();
+  });
+
+  // ── Image controls ────────────────────────────────────────
+  const bgImageUrl      = document.getElementById('bg-image-url');
+  const imgOverlay      = document.getElementById('img-overlay');
+  const imgOverlayLabel = document.getElementById('img-overlay-val');
+
+  function applyBgImage() {
+    const url = bgImageUrl.value.trim();
+    if (!url) { setMsgBg('rgba(0,0,0,0.78)'); return; }
+    const o = (parseInt(imgOverlay.value) / 100).toFixed(2);
+    setMsgBg(`linear-gradient(rgba(0,0,0,${o}),rgba(0,0,0,${o})),url('${url}') center/cover no-repeat`);
+  }
+  bgImageUrl.addEventListener('input', applyBgImage);
+  imgOverlay.addEventListener('input', () => {
+    imgOverlayLabel.textContent = `${imgOverlay.value}%`;
+    applyBgImage();
+  });
+
+  function applyBg() {
+    if (currentBgType === 'solid')    applyBgSolid();
+    else if (currentBgType === 'gradient') applyBgGradient();
+    else if (currentBgType === 'stripes')  applyBgStripes();
+    else applyBgImage();
+  }
+
+  // ── Border ───────────────────────────────────────────────
+  const borderEnabled     = document.getElementById('border-enabled');
+  const borderColorInput  = document.getElementById('border-color');
+  const borderWidthSlider = document.getElementById('border-width');
+  const borderWidthLabel  = document.getElementById('border-width-val');
+
+  function applyBorder() {
+    const val = borderEnabled.checked
+      ? `${borderWidthSlider.value}px solid ${borderColorInput.value}`
+      : 'none';
+    document.documentElement.style.setProperty('--msg-border', val);
+  }
+  borderEnabled.addEventListener('change', applyBorder);
+  borderColorInput.addEventListener('input', applyBorder);
+  borderWidthSlider.addEventListener('input', () => {
+    borderWidthLabel.textContent = `${borderWidthSlider.value}px`;
+    applyBorder();
+  });
+  applyBorder();
+
+  // ── Text colour ───────────────────────────────────────────
+  const textColorInput = document.getElementById('text-color');
+  const applyTextColor = () => document.documentElement.style.setProperty('--text-color', textColorInput.value);
+  textColorInput.addEventListener('input', applyTextColor);
+  applyTextColor();
+
+  // ── Border radius ─────────────────────────────────────────
+  const msgRadiusSlider = document.getElementById('msg-radius');
+  const msgRadiusLabel  = document.getElementById('msg-radius-val');
+  msgRadiusSlider.addEventListener('input', () => {
+    msgRadiusLabel.textContent = `${msgRadiusSlider.value}px`;
+    document.documentElement.style.setProperty('--msg-radius', `${msgRadiusSlider.value}px`);
+  });
+
+  // ── Generate URL ──────────────────────────────────────────
   document.getElementById('go-btn').addEventListener('click', () => {
-    const isCustom = document.getElementById('custom-channel').classList.contains('hidden') === false;
+    const isCustom = !document.getElementById('custom-channel').classList.contains('hidden');
     let type, value;
 
     if (isCustom) {
@@ -107,8 +320,27 @@ async function runSetup() {
       value = selectedChannelId;
     }
 
-    const p = new URLSearchParams({ [type]: value, font: fontSelect.value, fontSize: sizeSlider.value });
-    const url = `${location.origin}/?${p.toString()}`;
+    const p = new URLSearchParams({
+      [type]: value,
+      font:            fontSelect.value,
+      fontSize:        sizeSlider.value,
+      'color-chatter': colorInputs.chatter.value.slice(1),
+      'color-mod':     colorInputs.mod.value.slice(1),
+      'color-member':  colorInputs.member.value.slice(1),
+      msgBg:           currentBgValue,
+      textColor:       textColorInput.value.slice(1),
+      msgRadius:       msgRadiusSlider.value,
+      ...(borderEnabled.checked ? {
+        borderColor: borderColorInput.value.slice(1),
+        borderWidth: borderWidthSlider.value,
+      } : {}),
+    });
+    const url = `${location.origin}/overlay?${p.toString()}`;
+    // Sanity-check: overlay requires channelId or liveId in the URL
+    if (!url.includes('channelId=') && !url.includes('liveId=')) {
+      alert('Erro: seleciona um canal antes de gerar o URL.');
+      return;
+    }
     document.getElementById('url-text').textContent = url;
     document.getElementById('preview-link').href = url;
     document.getElementById('result').classList.remove('hidden');
@@ -151,6 +383,8 @@ async function loadFontList(select) {
 }
 
 // ── Chat overlay ──────────────────────────────────────────────
+const seenIds = new Set();
+
 function runOverlay() {
   setupEl.classList.add('hidden');
   overlayEl.classList.remove('hidden');
@@ -169,7 +403,11 @@ function runOverlay() {
     ws.addEventListener('message', ({ data }) => {
       try {
         const msg = JSON.parse(data);
-        if (msg.type === 'chat') addMessage(msg);
+        if (msg.type === 'chat') {
+          if (msg.id && seenIds.has(msg.id)) return;
+          if (msg.id) seenIds.add(msg.id);
+          addMessage(msg);
+        }
       } catch (e) { console.error('[chat]', e); }
     });
 
@@ -189,7 +427,6 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
   const el = document.createElement('div');
   el.className = `message ${role}${superchat ? ' superchat' : ''}`;
   el.dataset.ts = timestamp || Date.now();
-  if (superchat) el.style.setProperty('--sc-color', SUPERCHAT_COLOURS[superchat.color] || '#1565c0');
 
   // Avatar
   const img = document.createElement('img');
@@ -199,12 +436,14 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
   img.src = avatar || makeAvatarSvg(author);
   if (avatar) img.onerror = () => { img.src = makeAvatarSvg(author); };
 
-  // Header row: name badge [+ superchat amount]
+  // Header: name text + badge icon on the right + optional superchat amount
   const header = document.createElement('div');
   header.className = 'msg-header';
 
   const name = document.createElement('span');
   name.className = 'name';
+  name.appendChild(document.createTextNode(author));
+
   if (role === 'mod' || role === 'member') {
     const icon = document.createElement('img');
     icon.className = 'badge-icon';
@@ -213,7 +452,6 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
     if (badgeIcon) icon.onerror = () => { icon.src = role === 'mod' ? MOD_ICON : MEMBER_ICON; };
     name.appendChild(icon);
   }
-  name.appendChild(document.createTextNode(author));
   header.appendChild(name);
 
   if (superchat) {
@@ -223,7 +461,11 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
     header.appendChild(amount);
   }
 
-  // Message text
+  // Message body (customisable background box)
+  const msgBody = document.createElement('div');
+  msgBody.className = 'msg-body';
+  if (superchat) msgBody.style.setProperty('--sc-color', SUPERCHAT_COLOURS[superchat.color] || '#1565c0');
+
   const text = document.createElement('span');
   text.className = 'text';
   const msgParts = Array.isArray(parts) ? parts : [];
@@ -234,27 +476,30 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
       } else if (p.t === 'img' && p.src) {
         const em = document.createElement('img');
         em.className = 'emoji-img';
-        em.alt = '';
+        em.alt = p.alt || '';
         em.src = p.src;
-        em.onerror = () => em.remove();
+        em.onerror = () => {
+          if (p.alt) em.replaceWith(document.createTextNode(p.alt));
+          else em.remove();
+        };
         text.append(em);
+      } else if (p.t === 'img' && p.alt) {
+        text.append(document.createTextNode(p.alt));
       }
     }
   } else {
     text.textContent = message ?? '';
   }
+  msgBody.appendChild(text);
 
-  el.append(img, header, text);
+  el.append(img, header, msgBody);
 
   // Insert at correct timestamp position (handles approved moderated messages)
   const ts = Number(el.dataset.ts);
   const children = Array.from(messagesEl.children);
   const after = children.findLast(c => Number(c.dataset.ts) <= ts);
-  if (after) {
-    after.after(el);
-  } else {
-    messagesEl.prepend(el);
-  }
+  if (after) after.after(el);
+  else messagesEl.prepend(el);
 
   while (messagesEl.children.length > MAX_MESSAGES) {
     messagesEl.removeChild(messagesEl.firstChild);

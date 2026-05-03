@@ -113,7 +113,13 @@ const emojiCache = new Map();
 function fetchBase64(url) {
   if (emojiCache.has(url)) return Promise.resolve(emojiCache.get(url));
   return new Promise((resolve) => {
-    const req = https.get(url, (res) => {
+    const req = https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://www.youtube.com/',
+      },
+    }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
@@ -155,15 +161,18 @@ async function startChat(config) {
         allKeys: Object.keys(item),
       }));
 
+      // Skip messages held by automod — they'll re-fire without isHeld when approved
+      if (item.isHeld) return;
+
       const isMod    = item.isModerator  || false;
       const isMember = item.isMembership || false;
       const role = isMod ? 'mod' : isMember ? 'member' : 'chatter';
 
       const rawParts = (item.message || []).map(p => {
-        if (p.isCustomEmoji && p.url) return { t: 'img', url: p.url, alt: p.alt || '' }; // custom channel emoji → fetch image
-        if (p.emojiText)              return { t: 'text', v: p.emojiText };               // standard Unicode emoji
-        if (p.url)                    return { t: 'img', url: p.url, alt: p.alt || '' }; // emoji without emojiText
-        if (p.text)                   return { t: 'text', v: p.text };
+        // Any emoji/image with a URL → fetch as image (covers custom, member and YouTube platform emojis)
+        if (p.url) return { t: 'img', url: p.url, alt: p.emojiText || p.alt || '' };
+        if (p.emojiText) return { t: 'text', v: p.emojiText };
+        if (p.text)      return { t: 'text', v: p.text };
         return null;
       }).filter(Boolean);
 
@@ -180,7 +189,7 @@ async function startChat(config) {
       const badgeUrl  = item.author.badge?.thumbnail?.url;
       broadcast({
         type: 'chat',
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         author: item.author.name || 'Anonymous',
         avatar: avatarUrl ? `/proxy?url=${encodeURIComponent(avatarUrl)}` : '',
         badgeIcon: badgeUrl ? `/proxy?url=${encodeURIComponent(badgeUrl)}` : null,
@@ -273,7 +282,12 @@ const heartbeat = setInterval(() => {
 }, 30_000);
 wss.on('close', () => clearInterval(heartbeat));
 
+// ── Overlay route (used by OBS Browser Source) ───────────────────
+app.get('/overlay', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'index.html'));
+});
+
 // ── Start server ──────────────────────────────────────────────────
-server.listen(3000, () => {
+server.listen(3000, '0.0.0.0', () => {
   console.log('YouTube Live Chat overlay: http://localhost:3000');
 });
