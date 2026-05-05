@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { LiveChat } from 'youtube-chat';
+import { LiveChat } from './live-chat.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import https from 'https';
@@ -153,16 +153,11 @@ async function startChat(config) {
         id: item.id,
         author: item.author?.name,
         channelId: item.author?.channelId,
-        isHeld: item.isHeld,
         isOwner: item.isOwner,
         isModerator: item.isModerator,
         isMembership: item.isMembership,
         msgLength: item.message?.length,
-        allKeys: Object.keys(item),
       }));
-
-      // Skip messages held by automod — they'll re-fire without isHeld when approved
-      if (item.isHeld) return;
 
       const isMod    = item.isModerator  || false;
       const isMember = item.isMembership || false;
@@ -201,6 +196,11 @@ async function startChat(config) {
           ? { amount: item.superchat.amount, color: item.superchat.color }
           : null,
       });
+    });
+
+    liveChat.on('delete', (id) => {
+      if (sessionId !== mySession) return;
+      broadcast({ type: 'delete', id });
     });
 
     liveChat.on('error', (err) => {

@@ -384,6 +384,7 @@ async function loadFontList(select) {
 
 // ── Chat overlay ──────────────────────────────────────────────
 const seenIds = new Set();
+const msgElements = new Map(); // id → DOM element, for targeted deletion
 
 function runOverlay() {
   setupEl.classList.add('hidden');
@@ -407,6 +408,9 @@ function runOverlay() {
           if (msg.id && seenIds.has(msg.id)) return;
           if (msg.id) seenIds.add(msg.id);
           addMessage(msg);
+        } else if (msg.type === 'delete' && msg.id) {
+          const el = msgElements.get(msg.id);
+          if (el) { el.remove(); msgElements.delete(msg.id); }
         }
       } catch (e) { console.error('[chat]', e); }
     });
@@ -423,10 +427,14 @@ function runOverlay() {
 }
 
 // ── Render a message ──────────────────────────────────────────
-function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat, timestamp }) {
+function addMessage({ id, author, avatar, message, parts, role, badgeIcon, superchat, timestamp }) {
   const el = document.createElement('div');
   el.className = `message ${role}${superchat ? ' superchat' : ''}`;
-  el.dataset.ts = timestamp || Date.now();
+  // Always use current time for positioning so old-timestamped messages
+  // (e.g. approved from automod hold) are appended at the end instead of
+  // being inserted at position 0 and immediately removed by the overflow limit.
+  el.dataset.ts = Date.now();
+  if (id) { el.dataset.msgid = id; msgElements.set(id, el); }
 
   // Avatar
   const img = document.createElement('img');
@@ -502,6 +510,7 @@ function addMessage({ author, avatar, message, parts, role, badgeIcon, superchat
   else messagesEl.prepend(el);
 
   while (messagesEl.children.length > MAX_MESSAGES) {
-    messagesEl.removeChild(messagesEl.firstChild);
+    const removed = messagesEl.removeChild(messagesEl.firstChild);
+    if (removed.dataset.msgid) msgElements.delete(removed.dataset.msgid);
   }
 }
