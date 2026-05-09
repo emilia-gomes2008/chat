@@ -61,6 +61,7 @@
           <button class="bg-tab" data-tab="gradient">Gradiente</button>
           <button class="bg-tab" data-tab="stripes">Listras</button>
           <button class="bg-tab" data-tab="image">Imagem</button>
+          <button class="bg-tab" data-tab="dandys">Dandy's World</button>
         </div>
 
         <!-- Solid -->
@@ -111,6 +112,25 @@
             <span>Opacidade</span>
             <input type="range" id="stripe-opacity" min="0" max="100" value="92">
             <span id="stripe-opacity-val">92%</span>
+          </div>
+        </div>
+
+        <!-- Dandy's World -->
+        <div class="bg-panel hidden" id="bg-panel-dandys">
+          <p class="preset-hint">Listras por cargo, nomes sempre brancos com contorno.</p>
+          <div class="color-pickers">
+            <label class="color-pick-item">
+              <span class="name-swatch" id="dw-preview-chatter" style="color:#fff;background:#111;padding:2px 6px;border-radius:4px">Chatter</span>
+              <input type="color" id="dw-color-chatter" value="#111111">
+            </label>
+            <label class="color-pick-item">
+              <span class="name-swatch" id="dw-preview-mod" style="color:#fff;background:#1a5fff;padding:2px 6px;border-radius:4px">Mod</span>
+              <input type="color" id="dw-color-mod" value="#1a5fff">
+            </label>
+            <label class="color-pick-item">
+              <span class="name-swatch" id="dw-preview-member" style="color:#fff;background:#1a9e45;padding:2px 6px;border-radius:4px">Membro</span>
+              <input type="color" id="dw-color-member" value="#1a9e45">
+            </label>
           </div>
         </div>
 

@@ -102,6 +102,14 @@ function applyStyles() {
   if (params.get('textBold')      === '1') document.documentElement.style.setProperty('--text-font-weight', 'bold');
   if (params.get('textItalic')    === '1') document.documentElement.style.setProperty('--text-font-style', 'italic');
   if (params.get('textUnderline') === '1') document.documentElement.style.setProperty('--text-decoration', 'underline');
+
+  if (params.get('preset') === 'dandys') {
+    document.body.classList.add('preset-dandys');
+    ['chatter', 'mod', 'member'].forEach(role => {
+      const hex = params.get(`dw-${role}`);
+      if (hex) document.documentElement.style.setProperty(`--dw-${role}`, `#${hex}`);
+    });
+  }
 }
 
 // ── Setup screen ──────────────────────────────────────────────
@@ -176,6 +184,7 @@ async function runSetup() {
     gradient: document.getElementById('bg-panel-gradient'),
     stripes:  document.getElementById('bg-panel-stripes'),
     image:    document.getElementById('bg-panel-image'),
+    dandys:   document.getElementById('bg-panel-dandys'),
   };
 
   document.querySelectorAll('.bg-tab').forEach(tab => {
@@ -277,11 +286,31 @@ async function runSetup() {
     applyBgImage();
   });
 
+  // ── Dandy's World controls ────────────────────────────────
+  const dwInputs = {
+    chatter: document.getElementById('dw-color-chatter'),
+    mod:     document.getElementById('dw-color-mod'),
+    member:  document.getElementById('dw-color-member'),
+  };
+  function applyDwColor(role, hex) {
+    document.documentElement.style.setProperty(`--dw-${role}`, hex);
+    const swatch = document.getElementById(`dw-preview-${role}`);
+    if (swatch) swatch.style.background = hex;
+  }
+  Object.entries(dwInputs).forEach(([role, input]) => {
+    if (!input) return;
+    input.addEventListener('input', () => applyDwColor(role, input.value));
+    applyDwColor(role, input.value);
+  });
+
   function applyBg() {
-    if (currentBgType === 'solid')    applyBgSolid();
+    const isDandys = currentBgType === 'dandys';
+    document.body.classList.toggle('preset-dandys', isDandys);
+    if (isDandys) return;
+    if (currentBgType === 'solid')         applyBgSolid();
     else if (currentBgType === 'gradient') applyBgGradient();
     else if (currentBgType === 'stripes')  applyBgStripes();
-    else applyBgImage();
+    else                                   applyBgImage();
   }
 
   // ── Border ───────────────────────────────────────────────
@@ -363,7 +392,14 @@ async function runSetup() {
       'color-chatter': colorInputs.chatter.value.slice(1),
       'color-mod':     colorInputs.mod.value.slice(1),
       'color-member':  colorInputs.member.value.slice(1),
-      msgBg:           currentBgValue,
+      ...(currentBgType !== 'dandys'
+        ? { msgBg: currentBgValue }
+        : {
+            preset:       'dandys',
+            'dw-chatter': dwInputs.chatter.value.slice(1),
+            'dw-mod':     dwInputs.mod.value.slice(1),
+            'dw-member':  dwInputs.member.value.slice(1),
+          }),
       textColor:       textColorInput.value.slice(1),
       msgRadius:       msgRadiusSlider.value,
       ...(borderEnabled.checked ? {

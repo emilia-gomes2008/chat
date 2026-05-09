@@ -464,6 +464,75 @@ body.overlay-mode { background: transparent; }
   padding: 6px 12px;
 }
 
+/* ── Dandy's World preset ──────────────────────────────────────── */
+:root {
+  --dw-chatter: #111111;
+  --dw-mod:     #1a5fff;
+  --dw-member:  #1a9e45;
+}
+
+/* Texto da mensagem igual ao estilo do nome */
+.preset-dandys .text {
+  color: #fff;
+  text-shadow:
+    -1px -1px 0 #000,  1px -1px 0 #000,
+    -1px  1px 0 #000,  1px  1px 0 #000;
+}
+
+/* Nomes brancos com contorno — especificidade alta para sobrepor .message.*.name */
+.preset-dandys .message.chatter .name,
+.preset-dandys .message.mod     .name,
+.preset-dandys .message.member  .name {
+  color: #fff;
+  text-shadow:
+    -1px -1px 0 #000,  1px -1px 0 #000,
+    -1px  1px 0 #000,  1px  1px 0 #000;
+}
+
+/* Borda preta em todas as caixas DW */
+.preset-dandys .message.chatter .msg-body,
+.preset-dandys .message.mod     .msg-body,
+.preset-dandys .message.member  .msg-body {
+  border: 4px solid rgba(0,0,0,0.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+}
+
+/* Listras + gradiente de baixo para cima, derivados automaticamente da cor do cargo */
+.preset-dandys .message.chatter .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--dw-chatter) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-chatter) 50%, #000) 100%);
+}
+.preset-dandys .message.mod .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to top,
+      color-mix(in srgb, var(--dw-mod) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-mod) 50%, #000) 100%);
+}
+.preset-dandys .message.member .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to top,
+      color-mix(in srgb, var(--dw-member) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-member) 50%, #000) 100%);
+}
+
+.preset-hint {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
 .text {
   font-size: var(--chat-font-size);
   color: var(--text-color, #ececec);
