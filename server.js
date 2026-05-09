@@ -7,7 +7,12 @@ import { dirname, join } from 'path';
 import https from 'https';
 import zlib from 'zlib';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// When compiled with Bun, import.meta.url resolves inside the binary (e.g. /binary.exe/server.js).
+// Detect that case by checking if the resolved path starts with process.execPath.
+const _metaPath = fileURLToPath(import.meta.url);
+const __dirname = _metaPath.startsWith(process.execPath)
+  ? dirname(process.execPath)
+  : dirname(_metaPath);
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
