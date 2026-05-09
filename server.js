@@ -4,14 +4,15 @@ import { WebSocketServer } from 'ws';
 import { LiveChat } from './live-chat.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync } from 'fs';
 import https from 'https';
 import zlib from 'zlib';
 
-// Bun compiled binaries use a virtual FS (B:\~BUN\root\ on Windows) for import.meta.url.
-// That path doesn't exist on disk, so fall back to the directory of the running executable.
-const _metaDir = dirname(fileURLToPath(import.meta.url));
-const __dirname = existsSync(_metaDir) ? _metaDir : dirname(process.execPath);
+// Bun compiled binaries: Bun global exists and argv[1] is not a .js script.
+// In that case import.meta.url points to a virtual FS (B:\~BUN\root\) — use execPath instead.
+const _isCompiledBun = typeof Bun !== 'undefined' && !process.argv[1]?.endsWith('.js');
+const __dirname = _isCompiledBun
+  ? dirname(process.execPath)
+  : dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
