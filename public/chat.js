@@ -98,6 +98,10 @@ function applyStyles() {
   const borderColor = params.get('borderColor');
   const borderWidth = params.get('borderWidth') || '2';
   if (borderColor) document.documentElement.style.setProperty('--msg-border', `${borderWidth}px solid #${borderColor}`);
+
+  if (params.get('textBold')      === '1') document.documentElement.style.setProperty('--text-font-weight', 'bold');
+  if (params.get('textItalic')    === '1') document.documentElement.style.setProperty('--text-font-style', 'italic');
+  if (params.get('textUnderline') === '1') document.documentElement.style.setProperty('--text-decoration', 'underline');
 }
 
 // ── Setup screen ──────────────────────────────────────────────
@@ -117,10 +121,18 @@ async function runSetup() {
   });
   fontSelect.addEventListener('change', updatePreview);
 
+  const textStyles = { bold: false, italic: false, underline: false };
+
   function updatePreview() {
     const preview = document.getElementById('font-preview');
-    preview.style.fontFamily = `'${fontSelect.value}', sans-serif`;
-    preview.style.fontSize   = `${sizeSlider.value}px`;
+    preview.style.fontFamily   = `'${fontSelect.value}', sans-serif`;
+    preview.style.fontSize     = `${sizeSlider.value}px`;
+    const txt = preview.querySelector('.fp-text');
+    if (txt) {
+      txt.style.fontWeight     = textStyles.bold      ? 'bold'      : 'normal';
+      txt.style.fontStyle      = textStyles.italic    ? 'italic'    : 'normal';
+      txt.style.textDecoration = textStyles.underline ? 'underline' : 'none';
+    }
   }
   updatePreview();
 
@@ -298,6 +310,23 @@ async function runSetup() {
   textColorInput.addEventListener('input', applyTextColor);
   applyTextColor();
 
+  // ── Text style toggles (bold / italic / underline) ────────
+  const styleMap = {
+    bold:      { prop: '--text-font-weight', on: 'bold',      off: 'normal' },
+    italic:    { prop: '--text-font-style',  on: 'italic',    off: 'normal' },
+    underline: { prop: '--text-decoration',  on: 'underline', off: 'none'   },
+  };
+  ['bold', 'italic', 'underline'].forEach(key => {
+    const btn = document.getElementById(`style-${key}`);
+    btn.addEventListener('click', () => {
+      textStyles[key] = !textStyles[key];
+      btn.classList.toggle('active', textStyles[key]);
+      const { prop, on, off } = styleMap[key];
+      document.documentElement.style.setProperty(prop, textStyles[key] ? on : off);
+      updatePreview();
+    });
+  });
+
   // ── Border radius ─────────────────────────────────────────
   const msgRadiusSlider = document.getElementById('msg-radius');
   const msgRadiusLabel  = document.getElementById('msg-radius-val');
@@ -305,6 +334,13 @@ async function runSetup() {
     msgRadiusLabel.textContent = `${msgRadiusSlider.value}px`;
     document.documentElement.style.setProperty('--msg-radius', `${msgRadiusSlider.value}px`);
   });
+
+  // ── Server URL field ──────────────────────────────────────
+  const serverUrlInput = document.getElementById('server-url');
+  const defaultOrigin = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? location.origin
+    : 'http://localhost:3000';
+  serverUrlInput.value = defaultOrigin;
 
   // ── Generate URL ──────────────────────────────────────────
   document.getElementById('go-btn').addEventListener('click', () => {
@@ -334,8 +370,12 @@ async function runSetup() {
         borderColor: borderColorInput.value.slice(1),
         borderWidth: borderWidthSlider.value,
       } : {}),
+      ...(textStyles.bold      ? { textBold:      '1' } : {}),
+      ...(textStyles.italic    ? { textItalic:    '1' } : {}),
+      ...(textStyles.underline ? { textUnderline: '1' } : {}),
     });
-    const url = `${location.origin}/overlay?${p.toString()}`;
+    const serverBase = serverUrlInput.value.trim().replace(/\/$/, '') || location.origin;
+    const url = `${serverBase}/overlay?${p.toString()}`;
     // Sanity-check: overlay requires channelId or liveId in the URL
     if (!url.includes('channelId=') && !url.includes('liveId=')) {
       alert('Erro: seleciona um canal antes de gerar o URL.');

@@ -9,6 +9,9 @@
   --msg-radius: 12px;
   --msg-border: none;
   --text-color: #ececec;
+  --text-font-weight: normal;
+  --text-font-style:  normal;
+  --text-decoration:  none;
 }
 
 body {
@@ -116,6 +119,30 @@ body.overlay-mode { background: transparent; }
 }
 #font-size-val { min-width: 30px; color: #ccc; font-size: 13px; }
 
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #888;
+  font-size: 13px;
+}
+.style-btn {
+  width: 32px;
+  height: 32px;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.style-btn:hover { background: #2a2a2a; color: #fff; }
+.style-btn.active { background: #e03030; border-color: #e03030; color: #fff; }
+
 /* Colour pickers (role name colours) */
 .color-pickers {
   display: flex;
@@ -185,6 +212,26 @@ body.overlay-mode { background: transparent; }
   width: 100%;
 }
 .bg-image-input:focus { border-color: #e03030; }
+
+#server-url {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+#server-url:focus { border-color: #e03030; }
+
+.server-hint {
+  font-size: 11px;
+  color: #555;
+  margin-top: 4px;
+}
+.server-hint code { color: #888; }
 
 /* Message background controls */
 .bg-row {
@@ -422,6 +469,9 @@ body.overlay-mode { background: transparent; }
   color: var(--text-color, #ececec);
   word-break: break-word;
   line-height: 1.35;
+  font-weight: var(--text-font-weight);
+  font-style: var(--text-font-style);
+  text-decoration: var(--text-decoration);
 }
 
 /* ── Superchat ────────────────────────────────────────────────── */
