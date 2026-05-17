@@ -65,7 +65,17 @@ function hexToRgba(hex, alpha) {
 function applyStyles() {
   const font = params.get('font');
   const size = params.get('fontSize');
-  if (font) document.body.style.fontFamily = `'${font}', sans-serif`;
+  if (font) {
+    document.body.style.fontFamily = `'${font}', sans-serif`;
+    document.fonts.ready.then(() => {
+      if (!document.fonts.check(`16px "${font}"`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}&display=swap`;
+        document.head.appendChild(link);
+      }
+    });
+  }
   if (size) document.body.style.setProperty('--chat-font-size', `${size}px`);
 
   ['chatter', 'mod', 'member'].forEach(role => {
@@ -103,18 +113,28 @@ function applyStyles() {
   if (params.get('textItalic')    === '1') document.documentElement.style.setProperty('--text-font-style', 'italic');
   if (params.get('textUnderline') === '1') document.documentElement.style.setProperty('--text-decoration', 'underline');
 
-  if (params.get('preset') === 'dandys') {
+  const preset = params.get('preset');
+  if (preset === 'dandys') {
     document.body.classList.add('preset-dandys');
     ['chatter', 'mod', 'member'].forEach(role => {
       const hex = params.get(`dw-${role}`);
       if (hex) document.documentElement.style.setProperty(`--dw-${role}`, `#${hex}`);
     });
+  } else if (preset === 'bendy') {
+    document.body.classList.add('preset-bendy');
+    if (params.get('bendyAvatarFx') === '1') document.body.classList.add('bendy-avatar-fx');
+  } else if (preset === 'fnaf') {
+    document.body.classList.add('preset-fnaf');
+    startFnafStatic();
+  } else if (preset === 'poppy') {
+    document.body.classList.add('preset-poppy');
   }
 }
 
 // ── Setup screen ──────────────────────────────────────────────
 async function runSetup() {
   setupEl.classList.remove('hidden');
+  document.body.classList.add('setup-mode');
 
   // Font family picker
   const fontSelect = document.getElementById('font-family');
@@ -133,7 +153,12 @@ async function runSetup() {
 
   function updatePreview() {
     const preview = document.getElementById('font-preview');
-    preview.style.fontFamily   = `'${fontSelect.value}', sans-serif`;
+    const b = document.body.classList;
+    const presetFont = b.contains('preset-bendy') ? "'Permanent Marker', cursive"
+                     : b.contains('preset-fnaf')  ? "'FiveFontsatFreddys', 'Creepster', cursive"
+                     : b.contains('preset-poppy') ? "'Bebas Neue', Impact, sans-serif"
+                     : null;
+    preview.style.fontFamily   = presetFont || `'${fontSelect.value}', sans-serif`;
     preview.style.fontSize     = `${sizeSlider.value}px`;
     const txt = preview.querySelector('.fp-text');
     if (txt) {
@@ -185,6 +210,9 @@ async function runSetup() {
     stripes:  document.getElementById('bg-panel-stripes'),
     image:    document.getElementById('bg-panel-image'),
     dandys:   document.getElementById('bg-panel-dandys'),
+    bendy:    document.getElementById('bg-panel-bendy'),
+    fnaf:     document.getElementById('bg-panel-fnaf'),
+    poppy:    document.getElementById('bg-panel-poppy'),
   };
 
   document.querySelectorAll('.bg-tab').forEach(tab => {
@@ -303,10 +331,26 @@ async function runSetup() {
     applyDwColor(role, input.value);
   });
 
+  const PRESETS = ['dandys', 'bendy', 'fnaf', 'poppy'];
+
+  // ── Bendy avatar FX checkbox ──────────────────────────────────
+  const bendyAvatarFxCheckbox = document.getElementById('bendy-avatar-fx');
+  if (bendyAvatarFxCheckbox) {
+    bendyAvatarFxCheckbox.addEventListener('change', () => {
+      if (currentBgType === 'bendy') {
+        document.body.classList.toggle('bendy-avatar-fx', bendyAvatarFxCheckbox.checked);
+      }
+    });
+  }
+
   function applyBg() {
-    const isDandys = currentBgType === 'dandys';
-    document.body.classList.toggle('preset-dandys', isDandys);
-    if (isDandys) return;
+    PRESETS.forEach(p => document.body.classList.remove(`preset-${p}`));
+    document.body.classList.remove('bendy-avatar-fx');
+    if (PRESETS.includes(currentBgType)) {
+      document.body.classList.add(`preset-${currentBgType}`);
+      updatePreview();
+      return;
+    }
     if (currentBgType === 'solid')         applyBgSolid();
     else if (currentBgType === 'gradient') applyBgGradient();
     else if (currentBgType === 'stripes')  applyBgStripes();
@@ -392,14 +436,20 @@ async function runSetup() {
       'color-chatter': colorInputs.chatter.value.slice(1),
       'color-mod':     colorInputs.mod.value.slice(1),
       'color-member':  colorInputs.member.value.slice(1),
-      ...(currentBgType !== 'dandys'
-        ? { msgBg: currentBgValue }
-        : {
+      ...(currentBgType === 'dandys'
+        ? {
             preset:       'dandys',
             'dw-chatter': dwInputs.chatter.value.slice(1),
             'dw-mod':     dwInputs.mod.value.slice(1),
             'dw-member':  dwInputs.member.value.slice(1),
-          }),
+          }
+        : currentBgType === 'bendy'
+        ? { preset: 'bendy', bendyAvatarFx: bendyAvatarFxCheckbox?.checked ? '1' : '0' }
+        : currentBgType === 'fnaf'
+        ? { preset: 'fnaf' }
+        : currentBgType === 'poppy'
+        ? { preset: 'poppy' }
+        : { msgBg: currentBgValue }),
       textColor:       textColorInput.value.slice(1),
       msgRadius:       msgRadiusSlider.value,
       ...(borderEnabled.checked ? {
@@ -409,6 +459,7 @@ async function runSetup() {
       ...(textStyles.bold      ? { textBold:      '1' } : {}),
       ...(textStyles.italic    ? { textItalic:    '1' } : {}),
       ...(textStyles.underline ? { textUnderline: '1' } : {}),
+      ...(document.getElementById('show-viewers')?.checked ? { showViewers: '1' } : {}),
     });
     const serverBase = serverUrlInput.value.trim().replace(/\/$/, '') || location.origin;
     const url = `${serverBase}/overlay?${p.toString()}`;
@@ -458,6 +509,33 @@ async function loadFontList(select) {
   });
 }
 
+// ── FNAF static noise on message bubbles ─────────────────────
+function startFnafStatic() {
+  const W = 128, H = 64;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  function tick() {
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = Math.random();
+      // Weighted distribution: mostly very dark, occasional bright flecks
+      const v = r < 0.09 ? (150 + (Math.random() * 105) | 0)
+              : r < 0.22 ? (30  + (Math.random() * 55)  | 0)
+              :             (     (Math.random() * 18)   | 0);
+      d[i] = d[i + 1] = d[i + 2] = v;
+      d[i + 3] = 235;
+    }
+    ctx.putImageData(img, 0, 0);
+    document.documentElement.style.setProperty('--fnaf-static-bg', `url(${c.toDataURL()})`);
+    setTimeout(tick, 90); // ~11 fps
+  }
+
+  tick();
+}
+
 // ── Chat overlay ──────────────────────────────────────────────
 const seenIds = new Set();
 const msgElements = new Map(); // id → DOM element, for targeted deletion
@@ -487,6 +565,13 @@ function runOverlay() {
         } else if (msg.type === 'delete' && msg.id) {
           const el = msgElements.get(msg.id);
           if (el) { el.remove(); msgElements.delete(msg.id); }
+        } else if (msg.type === 'viewerCount' && params.get('showViewers') === '1') {
+          const vcEl = document.getElementById('viewer-count');
+          const vcNum = document.getElementById('viewer-num');
+          if (vcEl && vcNum) {
+            vcEl.classList.remove('hidden');
+            vcNum.textContent = msg.count;
+          }
         }
       } catch (e) { console.error('[chat]', e); }
     });
@@ -506,6 +591,9 @@ function runOverlay() {
 function addMessage({ id, author, avatar, message, parts, role, badgeIcon, superchat, timestamp }) {
   const el = document.createElement('div');
   el.className = `message ${role}${superchat ? ' superchat' : ''}`;
+  if (params.get('preset') === 'fnaf') {
+    el.style.setProperty('--glitch-delay', `${(Math.random() * 7 + 1).toFixed(1)}s`);
+  }
   // Always use current time for positioning so old-timestamped messages
   // (e.g. approved from automod hold) are appended at the end instead of
   // being inserted at position 0 and immediately removed by the overflow limit.

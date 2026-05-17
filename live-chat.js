@@ -198,7 +198,17 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
-  return { chatItems, deletedIds, continuation };
+  let viewerCount = null;
+  try {
+    const runs = lcc.header?.liveChatHeaderRenderer?.viewerCountText?.runs;
+    if (runs?.length) {
+      const text = runs.map(r => r.text || '').join('');
+      const m = text.match(/[\d,]+/);
+      if (m) viewerCount = parseInt(m[0].replace(/,/g, ''), 10);
+    }
+  } catch { /* ignore */ }
+
+  return { chatItems, deletedIds, continuation, viewerCount };
 }
 
 export class LiveChat extends EventEmitter {
@@ -249,10 +259,11 @@ export class LiveChat extends EventEmitter {
         context: { client: { clientVersion: this.#options.clientVersion, clientName: 'WEB' } },
         continuation: this.#options.continuation,
       });
-      const { chatItems, deletedIds, continuation } = parseChatData(res);
+      const { chatItems, deletedIds, continuation, viewerCount } = parseChatData(res);
       this.#options.continuation = continuation;
       chatItems.forEach(item => this.emit('chat', item));
       deletedIds.forEach(id => this.emit('delete', id));
+      if (viewerCount !== null) this.emit('viewerCount', viewerCount);
     } catch (err) {
       this.emit('error', err);
     }

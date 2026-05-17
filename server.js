@@ -104,6 +104,43 @@ let currentConfig = null;
 let retryTimer = null;
 let retryCount = 0;
 let sessionId = 0; // incremented on each startChat to discard stale events
+let viewerCountTimer = null;
+
+function stopViewerCountPolling() {
+  if (viewerCountTimer) { clearInterval(viewerCountTimer); viewerCountTimer = null; }
+}
+
+function pollViewerCount(liveId, mySession) {
+  if (sessionId !== mySession || !liveId) return;
+  const req = https.get(`https://www.youtube.com/watch?v=${liveId}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate',
+    },
+  }, (res) => {
+    const enc = res.headers['content-encoding'] || '';
+    let stream = res;
+    if (enc.includes('gzip')) stream = res.pipe(zlib.createGunzip());
+    else if (enc.includes('deflate')) stream = res.pipe(zlib.createInflate());
+    const chunks = [];
+    stream.on('data', c => chunks.push(c));
+    stream.on('end', () => {
+      if (sessionId !== mySession) return;
+      const html = Buffer.concat(chunks).toString('utf-8');
+      const m = html.match(/"([\d,]+) watching"/)
+             || html.match(/"concurrentViewers":"([\d,]+)"/)
+             || html.match(/"viewCount":"([\d,]+)"/);
+      if (m) {
+        const count = parseInt(m[1].replace(/,/g, ''), 10);
+        if (!isNaN(count)) broadcast({ type: 'viewerCount', count });
+      }
+    });
+    stream.on('error', () => {});
+  });
+  req.on('error', () => {});
+  req.setTimeout(8000, () => req.destroy());
+}
 
 function broadcast(data) {
   const msg = JSON.stringify(data);
@@ -143,6 +180,7 @@ function fetchBase64(url) {
 async function startChat(config) {
   if (liveChat) { liveChat.stop(); liveChat = null; }
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  stopViewerCountPolling();
 
   currentConfig = config;
   const mySession = ++sessionId;
@@ -213,6 +251,11 @@ async function startChat(config) {
       console.error('[chat error]', msg);
     });
 
+    liveChat.on('viewerCount', (count) => {
+      if (sessionId !== mySession) return;
+      broadcast({ type: 'viewerCount', count });
+    });
+
     liveChat.on('end', () => {
       console.log('[chat] Stream ended or disconnected — scheduling retry');
       broadcast({ type: 'status', status: 'reconnecting' });
@@ -227,6 +270,12 @@ async function startChat(config) {
     } else {
       console.log('[chat] Connected to live chat!');
       broadcast({ type: 'status', status: 'connected' });
+      // Poll YouTube page for live viewer count (every 30s)
+      const vid = liveChat.liveId;
+      if (vid) {
+        pollViewerCount(vid, mySession);
+        viewerCountTimer = setInterval(() => pollViewerCount(vid, mySession), 30_000);
+      }
     }
   } catch (err) {
     console.error('[chat] Startup error:', err.message);

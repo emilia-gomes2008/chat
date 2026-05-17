@@ -22,16 +22,23 @@ body {
   overflow: hidden;
 }
 
+body.setup-mode {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
 body.overlay-mode { background: transparent; }
 .hidden { display: none !important; }
 
 /* ── Setup screen ─────────────────────────────────────────────── */
 #setup:not(.hidden) {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
-  overflow-y: auto;
+  justify-content: flex-start;
+  padding: 20px 0;
+  min-height: 100vh;
 }
 
 .card {
@@ -41,7 +48,7 @@ body.overlay-mode { background: transparent; }
   padding: 28px;
   width: 500px;
   max-width: 95vw;
-  margin: 20px 0;
+  margin: 0;
 }
 
 .logo {
@@ -532,6 +539,14 @@ body.overlay-mode { background: transparent; }
   line-height: 1.5;
   margin-bottom: 6px;
 }
+.preset-hint code { color: #888; }
+
+/* Second row of preset tabs */
+.preset-tabs {
+  margin-top: 4px;
+  background: #0c0c14;
+}
+.preset-tabs .bg-tab.active { background: #1e1e3a; }
 
 .text {
   font-size: var(--chat-font-size);
@@ -567,4 +582,314 @@ body.overlay-mode { background: transparent; }
   height: 1.4em;
   vertical-align: -0.3em;
   object-fit: contain;
+}
+
+/* ── Viewer count badge ───────────────────────────────────────── */
+.viewer-count {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px 5px 8px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.02em;
+}
+
+/* ── Font face ───────────────────────────────────────────────── */
+@font-face {
+  font-family: 'FiveFontsatFreddys';
+  src:
+    url('/fonts/fnaf.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Hide setup options that don't apply to active preset ─────── */
+body.preset-bendy  #border-row,
+body.preset-fnaf   #border-row,
+body.preset-poppy  #border-row,
+body.preset-dandys #border-row  { display: none !important; }
+
+body.preset-bendy #font-section,
+body.preset-fnaf  #font-section { display: none !important; }
+
+/* ── Bendy and the Ink Machine preset ────────────────────────── */
+.preset-bendy .msg-body {
+  background:
+    /* Ink-sketch plank gap lines on top of the image */
+    repeating-linear-gradient(
+      0deg,
+      rgba(8,3,0,0.88) 0px, rgba(8,3,0,0.88) 2px,
+      rgba(255,210,70,0.12) 2px, rgba(255,210,70,0.12) 3px,
+      transparent 3px, transparent 30px
+    ),
+    /* Diagonal sketch grain */
+    repeating-linear-gradient(
+      3deg,
+      transparent 0, transparent 6px,
+      rgba(0,0,0,0.04) 6px, rgba(0,0,0,0.04) 7px
+    ),
+    /* The wood texture image — fallback gradient if image not yet placed */
+    url('/img/bendy-wood-light.png') center/cover,
+    linear-gradient(to right, #C99318, #E6B63A, #C99318);
+  border: 3px solid #140c00;
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.62), inset 0 0 0 1px rgba(255,218,70,0.18);
+}
+
+.preset-bendy .text {
+  font-family: 'Permanent Marker', cursive;
+  color: #0e0800;
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.75),
+     1px -1px 0 rgba(255,245,185,0.75),
+    -1px  1px 0 rgba(255,245,185,0.75),
+     1px  1px 0 rgba(255,245,185,0.75);
+}
+
+/* Role colors from user picker — outline keeps them readable on yellow */
+.preset-bendy .message.chatter .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-chatter);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+.preset-bendy .message.mod .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-mod);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+.preset-bendy .message.member .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-member);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+
+.preset-bendy .avatar {
+  border: 2px solid #140c00;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.65);
+  border-radius: 3px;
+}
+
+.preset-bendy.bendy-avatar-fx .avatar {
+  filter: grayscale(1) sepia(1) hue-rotate(-10deg) saturate(2.5) brightness(0.82);
+}
+
+/* ── Five Nights at Freddy's preset ──────────────────────────── */
+.preset-fnaf .msg-body {
+  background: rgba(5, 3, 1, 0.94);
+  /* Asymmetric monitor-bezel borders */
+  border-top:    3px solid rgba(55, 90, 30, 0.75);
+  border-right:  1px solid rgba(25, 45, 10, 0.55);
+  border-bottom: 2px solid rgba(15, 30, 6, 0.9);
+  border-left:   4px solid rgba(45, 78, 22, 0.8);
+  border-radius: 3px 2px 4px 3px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* Inner monitor vignette */
+  box-shadow:
+    inset 0 0 28px rgba(0,0,0,0.65),
+    inset 5px 0 12px rgba(0,0,0,0.35),
+    inset -3px 0 8px rgba(0,0,0,0.25);
+}
+
+/* Animated static noise layer */
+.preset-fnaf .msg-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--fnaf-static-bg, none);
+  background-size: cover;
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* CRT scanlines */
+.preset-fnaf .msg-body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0, transparent 3px,
+    rgba(0,0,0,0.20) 3px, rgba(0,0,0,0.20) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.preset-fnaf .text {
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: var(--chat-font-size);
+  color: #d8e0cc;
+  text-shadow: 0 0 5px rgba(180, 210, 140, 0.3);
+  position: relative;
+  z-index: 2;
+}
+
+/* Camera-tablet label for name */
+.preset-fnaf .name {
+  display: inline-flex;
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: calc(var(--chat-font-size) * 0.72);
+  background: rgba(4, 8, 3, 0.98);
+  border-top:    3px solid rgba(55, 100, 28, 0.95);
+  border-right:  1px solid rgba(30, 58, 12, 0.7);
+  border-bottom: 1px solid rgba(20, 42, 8, 0.9);
+  border-left:   2px solid rgba(45, 80, 20, 0.85);
+  padding: 3px 11px 3px 8px;
+  border-radius: 1px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 14px rgba(0,0,0,0.85),
+    inset 0 1px 0 rgba(70, 120, 35, 0.12),
+    0 2px 0 rgba(0,0,0,0.85),
+    0 0 14px rgba(25, 70, 10, 0.5);
+}
+
+.preset-fnaf .message.chatter .name { color: var(--color-chatter); }
+.preset-fnaf .message.mod     .name { color: var(--color-mod); }
+.preset-fnaf .message.member  .name { color: var(--color-member); }
+
+.preset-fnaf .avatar {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: saturate(0.45) contrast(1.25) brightness(0.72);
+}
+
+.preset-fnaf .emoji-img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: saturate(0.45) contrast(1.25) brightness(0.72);
+  transform: translateY(-6px);
+}
+
+@keyframes fnaf-glitch {
+  0%, 88%, 100%  { transform: none; }
+  89%  { transform: translateX(-3px) skewX(1deg); }
+  90%  { transform: translateX(3px)  skewX(-1deg); }
+  91%  { transform: none; }
+  92%  { transform: translateX(-1px); }
+  93%  { transform: none; }
+}
+
+.preset-fnaf .message {
+  animation: appear 0.22s ease forwards, fnaf-glitch 9s infinite;
+  animation-delay: 0s, var(--glitch-delay, 2s);
+}
+
+/* ── Poppy Playtime preset ───────────────────────────────────── */
+.preset-poppy .msg-body {
+  background: linear-gradient(135deg, rgba(8,18,42,0.94), rgba(12,26,58,0.94));
+  border: 4px solid #810909;
+  border-radius: 10px;
+  box-shadow:
+    0 0 14px rgba(0, 144, 221, 0.3),
+    inset 0 0 18px rgba(0, 144, 221, 0.06);
+}
+
+.preset-poppy .text {
+  color: #e8f0ff;
+}
+
+.preset-poppy .message.chatter .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #FFD600;
+  text-shadow: 0 0 10px rgba(255, 214, 0, 0.5);
+  letter-spacing: 0.06em;
+}
+.preset-poppy .message.mod .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #FF6B00;
+  text-shadow: 0 0 10px rgba(255, 107, 0, 0.55);
+  letter-spacing: 0.06em;
+}
+.preset-poppy .message.member .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #00C8FF;
+  text-shadow: 0 0 10px rgba(0, 200, 255, 0.55);
+  letter-spacing: 0.06em;
+}
+
+.preset-poppy .avatar {
+  border: 2px solid #0090dd;
+  box-shadow: 0 0 8px rgba(0, 144, 221, 0.4);
+}
+
+.preset-poppy .message.superchat .msg-body {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      #FFD600 0, #FFD600 8px,
+      #1a1400 8px, #1a1400 16px
+    );
+  border-color: #FF6B00;
+  box-shadow: 0 0 16px rgba(255, 107, 0, 0.5);
+}
+
+/* ── Role-color swatches adapt to active preset ──────────────── */
+body.preset-bendy #preview-chatter,
+body.preset-bendy #preview-mod,
+body.preset-bendy #preview-member {
+  font-family: 'Permanent Marker', cursive;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 2px solid #140c00;
+  background: linear-gradient(90deg, #C99318, #E6B63A);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,.85),
+     1px -1px 0 rgba(255,245,185,.85),
+    -1px  1px 0 rgba(255,245,185,.85),
+     1px  1px 0 rgba(255,245,185,.85);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+}
+
+body.preset-fnaf #preview-chatter,
+body.preset-fnaf #preview-mod,
+body.preset-fnaf #preview-member {
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: 11px;
+  padding: 3px 9px 3px 7px;
+  border-top:    2px solid rgba(55, 100, 28, 0.95);
+  border-right:  1px solid rgba(30, 58, 12, 0.7);
+  border-bottom: 1px solid rgba(20, 42, 8, 0.9);
+  border-left:   2px solid rgba(45, 80, 20, 0.85);
+  border-radius: 1px;
+  background: rgba(4, 8, 3, 0.97);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(25, 70, 10, 0.45);
+  text-shadow: none;
+}
+
+body.preset-poppy #preview-chatter,
+body.preset-poppy #preview-mod,
+body.preset-poppy #preview-member {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  padding: 2px 9px;
+  border: 2px solid #0090dd;
+  border-radius: 6px;
+  background: rgba(8, 18, 42, 0.92);
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 8px rgba(0, 144, 221, 0.3);
 }
