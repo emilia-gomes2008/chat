@@ -67,8 +67,8 @@ function applyStyles() {
   const size = params.get('fontSize');
   if (font) {
     document.body.style.fontFamily = `'${font}', sans-serif`;
-    document.fonts.ready.then(() => {
-      if (!document.fonts.check(`16px "${font}"`)) {
+    document.fonts.load(`16px "${font}"`).then(loaded => {
+      if (!loaded.length) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}&display=swap`;
@@ -348,6 +348,9 @@ async function runSetup() {
     document.body.classList.remove('bendy-avatar-fx');
     if (PRESETS.includes(currentBgType)) {
       document.body.classList.add(`preset-${currentBgType}`);
+      if (currentBgType === 'bendy' && bendyAvatarFxCheckbox?.checked) {
+        document.body.classList.add('bendy-avatar-fx');
+      }
       updatePreview();
       return;
     }
