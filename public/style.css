@@ -609,7 +609,7 @@ body.overlay-mode { background: transparent; }
 @font-face {
   font-family: 'FiveFontsatFreddys';
   src:
-    url('public/fonts/fnaf.ttf') format('truetype');
+    url('/fonts/fnaf.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
