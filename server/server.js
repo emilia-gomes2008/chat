@@ -10,9 +10,10 @@ import zlib from 'zlib';
 // Bun compiled binaries: Bun global exists and argv[1] is not a .js script.
 // In that case import.meta.url points to a virtual FS (B:\~BUN\root\) — use execPath instead.
 const _isCompiledBun = typeof Bun !== 'undefined' && !process.argv[1]?.endsWith('.js');
+// Non-compiled runs execute this file from server/, so the project root is one level up.
 const __dirname = _isCompiledBun
   ? dirname(process.execPath)
-  : dirname(fileURLToPath(import.meta.url));
+  : join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });

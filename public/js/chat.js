@@ -169,23 +169,6 @@ async function runSetup() {
   }
   updatePreview();
 
-  // ── Channel buttons ───────────────────────────────────────
-  let selectedChannelId   = 'UCmke4QQuseu1yjuDgbMYENw';
-  let selectedChannelType = 'channelId';
-
-  document.querySelectorAll('.channel-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const isCustom = btn.dataset.id === 'custom';
-      document.getElementById('custom-channel').classList.toggle('hidden', !isCustom);
-      if (!isCustom) {
-        selectedChannelId   = btn.dataset.id;
-        selectedChannelType = btn.dataset.type;
-      }
-    });
-  });
-
   // ── Role colour pickers ───────────────────────────────────
   const colorInputs = {
     chatter: document.getElementById('color-chatter'),
@@ -420,17 +403,9 @@ async function runSetup() {
 
   // ── Generate URL ──────────────────────────────────────────
   document.getElementById('go-btn').addEventListener('click', () => {
-    const isCustom = !document.getElementById('custom-channel').classList.contains('hidden');
-    let type, value;
-
-    if (isCustom) {
-      type  = document.getElementById('id-type').value;
-      value = document.getElementById('id-value').value.trim();
-      if (!value) { document.getElementById('id-value').focus(); return; }
-    } else {
-      type  = selectedChannelType;
-      value = selectedChannelId;
-    }
+    const type  = document.getElementById('id-type').value;
+    const value = document.getElementById('id-value').value.trim();
+    if (!value) { document.getElementById('id-value').focus(); return; }
 
     const p = new URLSearchParams({
       [type]: value,
@@ -468,7 +443,7 @@ async function runSetup() {
     const url = `${serverBase}/overlay?${p.toString()}`;
     // Sanity-check: overlay requires channelId or liveId in the URL
     if (!url.includes('channelId=') && !url.includes('liveId=')) {
-      alert('Erro: seleciona um canal antes de gerar o URL.');
+      alert('Error: enter a channel ID before generating the URL.');
       return;
     }
     document.getElementById('url-text').textContent = url;
@@ -480,8 +455,8 @@ async function runSetup() {
     const url = document.getElementById('url-text').textContent;
     navigator.clipboard.writeText(url).then(() => {
       const btn = document.getElementById('copy-btn');
-      btn.textContent = 'Copiado!';
-      setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
     });
   });
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>YouTube Live Chat</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Permanent+Marker&family=Creepster&display=swap" rel="stylesheet">
@@ -22,48 +22,39 @@
         <span>Live Chat Overlay</span>
       </div>
 
-      <div class="section-title">Canal</div>
-      <div class="channel-list">
-        <button class="channel-btn active" data-id="UCmke4QQuseu1yjuDgbMYENw" data-type="channelId">
-          Senhor Molten
-        </button>
-        <button class="channel-btn" data-id="custom" data-type="channelId">
-          Outro canal
-        </button>
-      </div>
-
-      <div id="custom-channel" class="field-group hidden">
+      <div class="section-title">Channel</div>
+      <div id="custom-channel" class="field-group">
         <select id="id-type">
           <option value="channelId">Channel ID (UCxxxxxxxx)</option>
           <option value="liveId">Video / Live ID</option>
         </select>
-        <input id="id-value" type="text" placeholder="Cola o ID aqui…" autocomplete="off" spellcheck="false">
+        <input id="id-value" type="text" placeholder="Paste the ID here…" autocomplete="off" spellcheck="false">
       </div>
 
-      <div class="section-title">Cor dos Nomes</div>
+      <div class="section-title">Name Colors</div>
       <div class="color-pickers">
         <label class="color-pick-item">
           <span class="name-swatch" id="preview-chatter">Chatter</span>
           <input type="color" id="color-chatter" value="#dd2222">
         </label>
         <label class="color-pick-item">
-          <span class="name-swatch" id="preview-mod">Moderador</span>
+          <span class="name-swatch" id="preview-mod">Moderator</span>
           <input type="color" id="color-mod" value="#1a5fff">
         </label>
         <label class="color-pick-item">
-          <span class="name-swatch" id="preview-member">Membro</span>
+          <span class="name-swatch" id="preview-member">Member</span>
           <input type="color" id="color-member" value="#1a9e45">
         </label>
       </div>
 
-      <div class="section-title">Fundo das Mensagens</div>
+      <div class="section-title">Message Background</div>
       <div class="field-group">
 
         <div class="bg-tabs">
-          <button class="bg-tab active" data-tab="solid">Sólido</button>
-          <button class="bg-tab" data-tab="gradient">Gradiente</button>
-          <button class="bg-tab" data-tab="stripes">Listras</button>
-          <button class="bg-tab" data-tab="image">Imagem</button>
+          <button class="bg-tab active" data-tab="solid">Solid</button>
+          <button class="bg-tab" data-tab="gradient">Gradient</button>
+          <button class="bg-tab" data-tab="stripes">Stripes</button>
+          <button class="bg-tab" data-tab="image">Image</button>
         </div>
         <div class="bg-tabs preset-tabs">
           <button class="bg-tab" data-tab="dandys">Dandy's World</button>
@@ -76,7 +67,7 @@
         <div class="bg-panel" id="bg-panel-solid">
           <div class="bg-row">
             <input type="color" id="msg-color" value="#000000">
-            <span>Cor</span>
+            <span>Color</span>
             <input type="range" id="msg-opacity" min="0" max="100" value="78">
             <span id="msg-opacity-val">78%</span>
           </div>
@@ -89,12 +80,12 @@
             <input type="color" id="grad-color2" value="#16213e">
           </div>
           <div class="bg-row">
-            <span>Ângulo</span>
+            <span>Angle</span>
             <input type="range" id="grad-angle" min="0" max="360" value="135">
             <span id="grad-angle-val">135°</span>
           </div>
           <div class="bg-row">
-            <span>Opacidade</span>
+            <span>Opacity</span>
             <input type="range" id="grad-opacity" min="0" max="100" value="90">
             <span id="grad-opacity-val">90%</span>
           </div>
@@ -107,17 +98,17 @@
             <input type="color" id="stripe-color2" value="#d2d2d2">
           </div>
           <div class="bg-row">
-            <span>Ângulo</span>
+            <span>Angle</span>
             <input type="range" id="stripe-angle" min="0" max="360" value="135">
             <span id="stripe-angle-val">135°</span>
           </div>
           <div class="bg-row">
-            <span>Largura</span>
+            <span>Width</span>
             <input type="range" id="stripe-width" min="2" max="40" value="8">
             <span id="stripe-width-val">8px</span>
           </div>
           <div class="bg-row">
-            <span>Opacidade</span>
+            <span>Opacity</span>
             <input type="range" id="stripe-opacity" min="0" max="100" value="92">
             <span id="stripe-opacity-val">92%</span>
           </div>
@@ -125,7 +116,7 @@
 
         <!-- Dandy's World -->
         <div class="bg-panel hidden" id="bg-panel-dandys">
-          <p class="preset-hint">Listras por cargo, nomes sempre brancos com contorno.</p>
+          <p class="preset-hint">Stripes by role, names always white with an outline.</p>
           <div class="color-pickers">
             <label class="color-pick-item">
               <span class="name-swatch" id="dw-preview-chatter" style="color:#fff;background:#111;padding:2px 6px;border-radius:4px">Chatter</span>
@@ -136,7 +127,7 @@
               <input type="color" id="dw-color-mod" value="#1a5fff">
             </label>
             <label class="color-pick-item">
-              <span class="name-swatch" id="dw-preview-member" style="color:#fff;background:#1a9e45;padding:2px 6px;border-radius:4px">Membro</span>
+              <span class="name-swatch" id="dw-preview-member" style="color:#fff;background:#1a9e45;padding:2px 6px;border-radius:4px">Member</span>
               <input type="color" id="dw-color-member" value="#1a9e45">
             </label>
           </div>
@@ -144,30 +135,30 @@
 
         <!-- Bendy and the Ink Machine -->
         <div class="bg-panel hidden" id="bg-panel-bendy">
-          <p class="preset-hint">Amarelo e preto, textura de tábuas de madeira, fonte Permanent Marker.</p>
+          <p class="preset-hint">Yellow and black, wood plank texture, Permanent Marker font.</p>
           <div class="bg-row">
             <label class="border-toggle">
               <input type="checkbox" id="bendy-avatar-fx">
-              <span>Duotone amarelo/preto nas fotos de perfil</span>
+              <span>Yellow/black duotone on profile pictures</span>
             </label>
           </div>
         </div>
 
         <!-- Five Nights at Freddy's -->
         <div class="bg-panel hidden" id="bg-panel-fnaf">
-          <p class="preset-hint">Estática animada nas caixas de mensagem, fonte Five Nights at Freddy's, avatares pixelizados.</p>
+          <p class="preset-hint">Animated static on message boxes, Five Nights at Freddy's font, pixelated avatars.</p>
           </div>
 
         <!-- Poppy Playtime -->
         <div class="bg-panel hidden" id="bg-panel-poppy">
-          <p class="preset-hint">Fábrica industrial da Playtime Co. Azul-noite com amarelo-aviso e laranja.</p>
+          <p class="preset-hint">Playtime Co. industrial factory. Night-blue with warning-yellow and orange.</p>
         </div>
 
         <!-- Image -->
         <div class="bg-panel hidden" id="bg-panel-image">
-          <input type="text" id="bg-image-url" class="bg-image-input" placeholder="https://... URL da imagem" autocomplete="off" spellcheck="false">
+          <input type="text" id="bg-image-url" class="bg-image-input" placeholder="https://... image URL" autocomplete="off" spellcheck="false">
           <div class="bg-row">
-            <span>Overlay escuro</span>
+            <span>Dark overlay</span>
             <input type="range" id="img-overlay" min="0" max="90" value="0">
             <span id="img-overlay-val">0%</span>
           </div>
@@ -176,17 +167,17 @@
         <!-- Common -->
         <div class="bg-row">
           <input type="color" id="text-color" value="#ececec">
-          <span>Texto</span>
+          <span>Text</span>
         </div>
         <div class="bg-row">
-          <span>Cantos</span>
+          <span>Corners</span>
           <input type="range" id="msg-radius" min="0" max="28" value="12">
           <span id="msg-radius-val">12px</span>
         </div>
         <div class="bg-row" id="border-row">
           <label class="border-toggle">
             <input type="checkbox" id="border-enabled">
-            <span>Borda</span>
+            <span>Border</span>
           </label>
           <input type="color" id="border-color" value="#ffffff">
           <input type="range" id="border-width" min="1" max="8" value="2">
@@ -196,19 +187,19 @@
       </div>
 
       <div id="font-section">
-      <div class="section-title">Fonte</div>
+      <div class="section-title">Font</div>
       <div class="field-group">
         <select id="font-family"><option value="Segoe UI">Segoe UI</option></select>
         <div class="size-row">
-          <span>Tamanho</span>
+          <span>Size</span>
           <input type="range" id="font-size" min="10" max="28" value="16">
           <span id="font-size-val">16px</span>
         </div>
         <div class="style-row">
-          <span>Estilo</span>
-          <button class="style-btn" id="style-bold" title="Negrito"><b>B</b></button>
-          <button class="style-btn" id="style-italic" title="Itálico"><i>I</i></button>
-          <button class="style-btn" id="style-underline" title="Sublinhado"><u>U</u></button>
+          <span>Style</span>
+          <button class="style-btn" id="style-bold" title="Bold"><b>B</b></button>
+          <button class="style-btn" id="style-italic" title="Italic"><i>I</i></button>
+          <button class="style-btn" id="style-underline" title="Underline"><u>U</u></button>
         </div>
       </div>
       </div><!-- /font-section -->
@@ -219,7 +210,7 @@
         <div class="fp-content">
           <span class="fp-name">@ibexis</span>
           <div class="fp-body">
-            <span class="fp-text">Exemplo de mensagem no chat 🔥</span>
+            <span class="fp-text">Example chat message 🔥</span>
           </div>
         </div>
       </div>
@@ -229,32 +220,32 @@
         <div class="bg-row">
           <label class="border-toggle">
             <input type="checkbox" id="show-viewers">
-            <span>Mostrar contador de espectadores</span>
+            <span>Show viewer counter</span>
           </label>
         </div>
       </div>
 
-      <div class="section-title">Servidor</div>
+      <div class="section-title">Server</div>
       <div class="field-group">
         <input id="server-url" type="text" placeholder="http://localhost:3000" autocomplete="off" spellcheck="false">
-        <p class="server-hint">Endereço onde o servidor está a correr (ex: <code>http://localhost:3000</code>)</p>
+        <p class="server-hint">Address where the server is running (e.g. <code>http://localhost:3000</code>)</p>
       </div>
 
-      <button id="go-btn">Gerar URL para o OBS</button>
+      <button id="go-btn">Generate URL for OBS</button>
 
       <div id="result" class="result hidden">
-        <p>Adiciona como <strong>Browser Source</strong> no OBS (1920×1080):</p>
+        <p>Add as a <strong>Browser Source</strong> in OBS (1920×1080):</p>
         <div class="url-row">
           <code id="url-text"></code>
-          <button id="copy-btn">Copiar</button>
+          <button id="copy-btn">Copy</button>
         </div>
-        <a id="preview-link" href="#" target="_blank" class="preview-link">Abrir prévia no browser →</a>
+        <a id="preview-link" href="#" target="_blank" class="preview-link">Open preview in browser →</a>
       </div>
 
       <div class="legend">
         <span class="badge chatter">Chatter</span>
-        <span class="badge mod">Moderador</span>
-        <span class="badge member">Membro</span>
+        <span class="badge mod">Moderator</span>
+        <span class="badge member">Member</span>
       </div>
     </div>
   </div>
@@ -270,6 +261,6 @@
     <div id="messages"></div>
   </div>
 
-  <script src="chat.js"></script>
+  <script src="js/chat.js"></script>
 </body>
 </html>
