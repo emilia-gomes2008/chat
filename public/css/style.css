@@ -1,0 +1,950 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --chat-font-size: 16px;
+  --color-chatter: #dd2222;
+  --color-mod:     #1a5fff;
+  --color-member:  #1a9e45;
+  --msg-bg:     rgba(0, 0, 0, 0.78);
+  --msg-radius: 12px;
+  --msg-border: none;
+  --text-color: #ececec;
+  --text-font-weight: normal;
+  --text-font-style:  normal;
+  --text-decoration:  none;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #111;
+  color: #fff;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.setup-mode {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+body.overlay-mode { background: transparent; }
+.hidden { display: none !important; }
+
+/* ── Setup screen ─────────────────────────────────────────────── */
+#setup:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px 0;
+  min-height: 100vh;
+}
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 28px;
+  width: 500px;
+  max-width: 95vw;
+  margin: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #666;
+  margin-bottom: 8px;
+  margin-top: 18px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field-group select,
+.field-group input[type="text"] {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+.field-group select:focus,
+.field-group input[type="text"]:focus { border-color: #e03030; }
+.field-group select option { background: #1a1a1a; }
+
+/* Saved channels */
+.saved-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.saved-channels:empty { display: none; margin-bottom: 0; }
+
+.saved-channel-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  padding: 5px 6px 5px 12px;
+  font-size: 12.5px;
+  color: #ccc;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.saved-channel-chip:hover { border-color: #555; color: #fff; }
+.saved-channel-chip.active { border-color: #e03030; color: #fff; }
+
+.saved-channel-chip .chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  color: #999;
+  border: none;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.saved-channel-chip .chip-remove:hover { background: #e03030; color: #fff; }
+
+.save-channel-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.save-channel-row input[type="text"] {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.18s;
+  flex: 1;
+  min-width: 0;
+}
+.save-channel-row input[type="text"]:focus { border-color: #e03030; }
+.save-channel-row button {
+  background: #2a2a2a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.save-channel-row button:hover { background: #444; }
+
+.size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #888;
+  font-size: 13px;
+}
+.size-row input[type="range"] {
+  flex: 1;
+  accent-color: #e03030;
+}
+#font-size-val { min-width: 30px; color: #ccc; font-size: 13px; }
+
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #888;
+  font-size: 13px;
+}
+.style-btn {
+  width: 32px;
+  height: 32px;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.style-btn:hover { background: #2a2a2a; color: #fff; }
+.style-btn.active { background: #e03030; border-color: #e03030; color: #fff; }
+
+/* Colour pickers (role name colours) */
+.color-pickers {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.color-pick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.color-pick-item input[type="color"] {
+  width: 44px;
+  height: 26px;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  padding: 2px;
+  background: #0e0e0e;
+  cursor: pointer;
+}
+
+.name-swatch {
+  font-weight: 700;
+  font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+/* Background type tabs */
+.bg-tabs {
+  display: flex;
+  gap: 3px;
+  background: #0e0e0e;
+  border-radius: 8px;
+  padding: 3px;
+}
+.bg-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  padding: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.bg-tab.active { background: #2a2a2a; color: #fff; }
+.bg-tab:hover:not(.active) { color: #ccc; }
+
+.bg-panel { display: flex; flex-direction: column; gap: 8px; }
+
+/* Image URL input */
+.bg-image-input {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+.bg-image-input:focus { border-color: #e03030; }
+
+#server-url {
+  background: #0e0e0e;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+#server-url:focus { border-color: #e03030; }
+
+.server-hint {
+  font-size: 11px;
+  color: #555;
+  margin-top: 4px;
+}
+.server-hint code { color: #888; }
+
+/* Message background controls */
+.bg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #888;
+  font-size: 13px;
+}
+.bg-row input[type="color"] {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  padding: 2px;
+  background: #0e0e0e;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bg-row input[type="range"] {
+  flex: 1;
+  accent-color: #e03030;
+}
+#msg-opacity-val { min-width: 34px; color: #ccc; font-size: 13px; }
+
+.border-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.border-toggle input[type="checkbox"] { accent-color: #e03030; cursor: pointer; }
+
+/* Font preview — mimics the overlay style */
+.font-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(30, 60, 100, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px 12px 10px;
+  margin: 12px 0 18px;
+}
+.fp-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #9b59b6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.fp-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fp-name {
+  font-weight: 700;
+  color: var(--color-chatter);
+  font-size: inherit;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.fp-body {
+  background: var(--msg-bg, rgba(0,0,0,0.78));
+  border-radius: var(--msg-radius, 12px);
+  border: var(--msg-border, none);
+  padding: 5px 10px;
+  width: fit-content;
+}
+.fp-text {
+  color: var(--text-color, #ececec);
+  font-size: inherit;
+}
+
+#go-btn {
+  width: 100%;
+  background: #e03030;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s;
+  margin-bottom: 16px;
+}
+#go-btn:hover { background: #c02020; }
+
+.result {
+  background: #0e0e0e;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.result p { color: #aaa; font-size: 13px; margin-bottom: 10px; }
+.result strong { color: #fff; }
+
+.url-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.url-row code {
+  flex: 1;
+  color: #7ab8ff;
+  font-size: 12px;
+  word-break: break-all;
+  background: #161616;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #2a2a2a;
+  display: block;
+}
+
+#copy-btn {
+  background: #2a2a2a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+#copy-btn:hover { background: #444; }
+
+.preview-link { color: #7ab8ff; font-size: 12.5px; text-decoration: none; }
+.preview-link:hover { text-decoration: underline; }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.badge {
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.badge.chatter { color: var(--color-chatter); }
+.badge.mod     { color: var(--color-mod); }
+.badge.member  { color: var(--color-member); }
+
+/* ── Chat overlay ─────────────────────────────────────────────── */
+#overlay:not(.hidden) {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px;
+  pointer-events: none;
+}
+
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+/* ── Message card ─────────────────────────────────────────────── */
+.message {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  max-width: 100%;
+  width: fit-content;
+  animation: appear 0.22s ease forwards;
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.avatar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: start;
+  margin-top: 2px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #222;
+}
+
+/* Header: name + optional superchat amount */
+.msg-header {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-weight: 700;
+  font-size: var(--chat-font-size);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.6);
+}
+
+.badge-icon {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+.message.chatter .name { color: var(--color-chatter); }
+.message.mod     .name { color: var(--color-mod); }
+.message.member  .name { color: var(--color-member); }
+
+/* Message body — the customisable box */
+.msg-body {
+  grid-column: 2;
+  grid-row: 2;
+  background: var(--msg-bg, rgba(0,0,0,0.78));
+  border-radius: var(--msg-radius, 12px);
+  border: var(--msg-border, none);
+  padding: 6px 12px;
+}
+
+/* ── Dandy's World preset ──────────────────────────────────────── */
+:root {
+  --dw-chatter: #111111;
+  --dw-mod:     #1a5fff;
+  --dw-member:  #1a9e45;
+}
+
+/* Message text matches the name style */
+.preset-dandys .text {
+  color: #fff;
+  text-shadow:
+    -1px -1px 0 #000,  1px -1px 0 #000,
+    -1px  1px 0 #000,  1px  1px 0 #000;
+}
+
+/* White names with outline — high specificity to override .message.*.name */
+.preset-dandys .message.chatter .name,
+.preset-dandys .message.mod     .name,
+.preset-dandys .message.member  .name {
+  color: #fff;
+  text-shadow:
+    -1px -1px 0 #000,  1px -1px 0 #000,
+    -1px  1px 0 #000,  1px  1px 0 #000;
+}
+
+/* Black border on all DW boxes */
+.preset-dandys .message.chatter .msg-body,
+.preset-dandys .message.mod     .msg-body,
+.preset-dandys .message.member  .msg-body {
+  border: 4px solid rgba(0,0,0,0.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+}
+
+/* Stripes + gradient from bottom to top, automatically derived from role color */
+.preset-dandys .message.chatter .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--dw-chatter) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-chatter) 50%, #000) 100%);
+}
+.preset-dandys .message.mod .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to top,
+      color-mix(in srgb, var(--dw-mod) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-mod) 50%, #000) 100%);
+}
+.preset-dandys .message.member .msg-body {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,0.28) 7px, rgba(0,0,0,0.28) 14px),
+    linear-gradient(to top,
+      color-mix(in srgb, var(--dw-member) 80%, #fff) 0%,
+      color-mix(in srgb, var(--dw-member) 50%, #000) 100%);
+}
+
+.preset-hint {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.preset-hint code { color: #888; }
+
+/* Second row of preset tabs */
+.preset-tabs {
+  margin-top: 4px;
+  background: #0c0c14;
+}
+.preset-tabs .bg-tab.active { background: #1e1e3a; }
+
+.text {
+  font-size: var(--chat-font-size);
+  color: var(--text-color, #ececec);
+  word-break: break-word;
+  line-height: 1.35;
+  font-weight: var(--text-font-weight);
+  font-style: var(--text-font-style);
+  text-decoration: var(--text-decoration);
+}
+
+/* ── Superchat ────────────────────────────────────────────────── */
+.message.superchat .msg-body {
+  background: var(--sc-color, #1565c0);
+}
+
+.sc-amount {
+  font-size: var(--chat-font-size);
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.3);
+  padding: 2px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+  text-shadow: none;
+}
+
+.message.superchat .text { color: #fff; }
+
+/* Custom YouTube emojis rendered inline */
+.emoji-img {
+  width: 1.4em;
+  height: 1.4em;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+
+/* ── Viewer count badge ───────────────────────────────────────── */
+.viewer-count {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px 5px 8px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.02em;
+}
+
+/* ── Font face ───────────────────────────────────────────────── */
+@font-face {
+  font-family: 'FiveFontsatFreddys';
+  src:
+    url('/fonts/fnaf.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Hide setup options that don't apply to active preset ─────── */
+body.preset-bendy  #border-row,
+body.preset-fnaf   #border-row,
+body.preset-poppy  #border-row,
+body.preset-dandys #border-row  { display: none !important; }
+
+body.preset-bendy #font-section,
+body.preset-fnaf  #font-section { display: none !important; }
+
+/* ── Bendy and the Ink Machine preset ────────────────────────── */
+.preset-bendy .msg-body {
+  background:
+    /* Ink-sketch plank gap lines on top of the image */
+    repeating-linear-gradient(
+      0deg,
+      rgba(8,3,0,0.88) 0px, rgba(8,3,0,0.88) 2px,
+      rgba(255,210,70,0.12) 2px, rgba(255,210,70,0.12) 3px,
+      transparent 3px, transparent 30px
+    ),
+    /* Diagonal sketch grain */
+    repeating-linear-gradient(
+      3deg,
+      transparent 0, transparent 6px,
+      rgba(0,0,0,0.04) 6px, rgba(0,0,0,0.04) 7px
+    ),
+    /* The wood texture image — fallback gradient if image not yet placed */
+    url('/img/bendy-wood-light.png') center/cover,
+    linear-gradient(to right, #C99318, #E6B63A, #C99318);
+  border: 3px solid #140c00;
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.62), inset 0 0 0 1px rgba(255,218,70,0.18);
+}
+
+.preset-bendy .text {
+  font-family: 'Permanent Marker', cursive;
+  color: #0e0800;
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.75),
+     1px -1px 0 rgba(255,245,185,0.75),
+    -1px  1px 0 rgba(255,245,185,0.75),
+     1px  1px 0 rgba(255,245,185,0.75);
+}
+
+/* Role colors from user picker — outline keeps them readable on yellow */
+.preset-bendy .message.chatter .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-chatter);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+.preset-bendy .message.mod .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-mod);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+.preset-bendy .message.member .name {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--color-member);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,0.8),  1px -1px 0 rgba(255,245,185,0.8),
+    -1px  1px 0 rgba(255,245,185,0.8),   1px  1px 0 rgba(255,245,185,0.8);
+}
+
+.preset-bendy .avatar {
+  border: 2px solid #140c00;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.65);
+  border-radius: 3px;
+}
+
+.preset-bendy.bendy-avatar-fx .avatar {
+  filter: grayscale(1) sepia(1) hue-rotate(-10deg) saturate(2.5) brightness(0.82);
+}
+
+/* ── Five Nights at Freddy's preset ──────────────────────────── */
+.preset-fnaf .msg-body {
+  background: rgba(5, 3, 1, 0.94);
+  /* Asymmetric monitor-bezel borders */
+  border-top:    3px solid rgba(55, 90, 30, 0.75);
+  border-right:  1px solid rgba(25, 45, 10, 0.55);
+  border-bottom: 2px solid rgba(15, 30, 6, 0.9);
+  border-left:   4px solid rgba(45, 78, 22, 0.8);
+  border-radius: 3px 2px 4px 3px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* Inner monitor vignette */
+  box-shadow:
+    inset 0 0 28px rgba(0,0,0,0.65),
+    inset 5px 0 12px rgba(0,0,0,0.35),
+    inset -3px 0 8px rgba(0,0,0,0.25);
+}
+
+/* Animated static noise layer */
+.preset-fnaf .msg-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--fnaf-static-bg, none);
+  background-size: cover;
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* CRT scanlines */
+.preset-fnaf .msg-body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0, transparent 3px,
+    rgba(0,0,0,0.20) 3px, rgba(0,0,0,0.20) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.preset-fnaf .text {
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: var(--chat-font-size);
+  color: #d8e0cc;
+  text-shadow: 0 0 5px rgba(180, 210, 140, 0.3);
+  position: relative;
+  z-index: 2;
+}
+
+/* Camera-tablet label for name */
+.preset-fnaf .name {
+  display: inline-flex;
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: calc(var(--chat-font-size) * 0.72);
+  background: rgba(4, 8, 3, 0.98);
+  border-top:    3px solid rgba(55, 100, 28, 0.95);
+  border-right:  1px solid rgba(30, 58, 12, 0.7);
+  border-bottom: 1px solid rgba(20, 42, 8, 0.9);
+  border-left:   2px solid rgba(45, 80, 20, 0.85);
+  padding: 3px 11px 3px 8px;
+  border-radius: 1px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 14px rgba(0,0,0,0.85),
+    inset 0 1px 0 rgba(70, 120, 35, 0.12),
+    0 2px 0 rgba(0,0,0,0.85),
+    0 0 14px rgba(25, 70, 10, 0.5);
+}
+
+.preset-fnaf .message.chatter .name { color: var(--color-chatter); }
+.preset-fnaf .message.mod     .name { color: var(--color-mod); }
+.preset-fnaf .message.member  .name { color: var(--color-member); }
+
+.preset-fnaf .avatar {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: saturate(0.45) contrast(1.25) brightness(0.72);
+}
+
+.preset-fnaf .emoji-img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: saturate(0.45) contrast(1.25) brightness(0.72);
+  transform: translateY(-6px);
+}
+
+@keyframes fnaf-glitch {
+  0%, 88%, 100%  { transform: none; }
+  89%  { transform: translateX(-3px) skewX(1deg); }
+  90%  { transform: translateX(3px)  skewX(-1deg); }
+  91%  { transform: none; }
+  92%  { transform: translateX(-1px); }
+  93%  { transform: none; }
+}
+
+.preset-fnaf .message {
+  animation: appear 0.22s ease forwards, fnaf-glitch 9s infinite;
+  animation-delay: 0s, var(--glitch-delay, 2s);
+}
+
+/* ── Poppy Playtime preset ───────────────────────────────────── */
+.preset-poppy .msg-body {
+  background: linear-gradient(135deg, rgba(8,18,42,0.94), rgba(12,26,58,0.94));
+  border: 4px solid #810909;
+  border-radius: 10px;
+  box-shadow:
+    0 0 14px rgba(0, 144, 221, 0.3),
+    inset 0 0 18px rgba(0, 144, 221, 0.06);
+}
+
+.preset-poppy .text {
+  color: #e8f0ff;
+}
+
+.preset-poppy .message.chatter .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #FFD600;
+  text-shadow: 0 0 10px rgba(255, 214, 0, 0.5);
+  letter-spacing: 0.06em;
+}
+.preset-poppy .message.mod .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #FF6B00;
+  text-shadow: 0 0 10px rgba(255, 107, 0, 0.55);
+  letter-spacing: 0.06em;
+}
+.preset-poppy .message.member .name {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  color: #00C8FF;
+  text-shadow: 0 0 10px rgba(0, 200, 255, 0.55);
+  letter-spacing: 0.06em;
+}
+
+.preset-poppy .avatar {
+  border: 2px solid #0090dd;
+  box-shadow: 0 0 8px rgba(0, 144, 221, 0.4);
+}
+
+.preset-poppy .message.superchat .msg-body {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      #FFD600 0, #FFD600 8px,
+      #1a1400 8px, #1a1400 16px
+    );
+  border-color: #FF6B00;
+  box-shadow: 0 0 16px rgba(255, 107, 0, 0.5);
+}
+
+/* ── Role-color swatches adapt to active preset ──────────────── */
+body.preset-bendy #preview-chatter,
+body.preset-bendy #preview-mod,
+body.preset-bendy #preview-member {
+  font-family: 'Permanent Marker', cursive;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 2px solid #140c00;
+  background: linear-gradient(90deg, #C99318, #E6B63A);
+  text-shadow:
+    -1px -1px 0 rgba(255,245,185,.85),
+     1px -1px 0 rgba(255,245,185,.85),
+    -1px  1px 0 rgba(255,245,185,.85),
+     1px  1px 0 rgba(255,245,185,.85);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+}
+
+body.preset-fnaf #preview-chatter,
+body.preset-fnaf #preview-mod,
+body.preset-fnaf #preview-member {
+  font-family: 'FiveFontsatFreddys', 'Creepster', cursive;
+  font-size: 11px;
+  padding: 3px 9px 3px 7px;
+  border-top:    2px solid rgba(55, 100, 28, 0.95);
+  border-right:  1px solid rgba(30, 58, 12, 0.7);
+  border-bottom: 1px solid rgba(20, 42, 8, 0.9);
+  border-left:   2px solid rgba(45, 80, 20, 0.85);
+  border-radius: 1px;
+  background: rgba(4, 8, 3, 0.97);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(25, 70, 10, 0.45);
+  text-shadow: none;
+}
+
+body.preset-poppy #preview-chatter,
+body.preset-poppy #preview-mod,
+body.preset-poppy #preview-member {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  padding: 2px 9px;
+  border: 2px solid #0090dd;
+  border-radius: 6px;
+  background: rgba(8, 18, 42, 0.92);
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 8px rgba(0, 144, 221, 0.3);
+}
