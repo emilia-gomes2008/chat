@@ -21,7 +21,7 @@ jobs:
         run: bun install
 
       - name: Build executable
-        run: bun build --compile server.js --outfile dist/chat-overlay
+        run: bun build --compile server/server.js --outfile dist/chat-overlay
 
       - name: Package
         shell: pwsh
