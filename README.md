@@ -1,6 +1,10 @@
-# YouTube Live Chat Overlay
+# Live Chat Overlay (YouTube + Twitch + TikTok)
 
-YouTube live chat overlay for use in OBS Studio. Displays messages with avatar, name colored by role, and text just like YouTube's chat, but styled for streaming.
+Multi-platform live chat overlay for use in OBS Studio. Displays messages with avatar, name colored by role, a small platform icon, and text just like the native chats, but styled for streaming.
+
+You can enable any combination: YouTube only, Twitch only, TikTok only, or all three merged into one overlay with a combined viewer counter. Just fill in whichever fields you want on the setup screen — leave the rest blank.
+
+No API keys or logins are required for any of the three.
 
 **Colors:**
 - 🔴 **Red** - regular viewers

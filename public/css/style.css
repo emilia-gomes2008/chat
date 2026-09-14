@@ -512,6 +512,16 @@ body.overlay-mode { background: transparent; }
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
 }
 
+.platform-icon {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
 .message.chatter .name { color: var(--color-chatter); }
 .message.mod     .name { color: var(--color-mod); }
 .message.member  .name { color: var(--color-member); }

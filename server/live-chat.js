@@ -198,6 +198,10 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
+  // NOTE: header.liveChatHeaderRenderer.viewerCountText is only present on some
+  // polls (YouTube doesn't send it on every continuation response), so this is
+  // a bonus fast-path only — the real, reliable source is #pollViewerCount()
+  // below, which scrapes the watch page directly on its own timer.
   let viewerCount = null;
   try {
     const runs = lcc.header?.liveChatHeaderRenderer?.viewerCountText?.runs;
@@ -211,12 +215,26 @@ function parseChatData(data) {
   return { chatItems, deletedIds, continuation, viewerCount };
 }
 
+// Reliable viewer count source: scrape the watch page itself. The chat
+// continuation's header field is intermittent; the watch page's rendered
+// data reliably includes one of these fields.
+function parseViewerCountFromHtml(html) {
+  const m = html.match(/"([\d,]+) watching now"/)
+         || html.match(/"([\d,]+)\s*watching"/i)
+         || html.match(/"concurrentViewers":"(\d+)"/)
+         || html.match(/"viewCount":"(\d+)"/);
+  if (!m) return null;
+  const n = parseInt(m[1].replace(/,/g, ''), 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 export class LiveChat extends EventEmitter {
   liveId;
   #id;
   #interval;
   #options = null;
   #timer = null;
+  #viewerTimer = null;
 
   constructor(id, interval = 1000) {
     super();
@@ -235,6 +253,14 @@ export class LiveChat extends EventEmitter {
       this.#options = parsePage(html);
       this.liveId = this.#options.liveId;
       this.#timer = setInterval(() => this.#execute(), this.#interval);
+
+      // Viewer count: we already have the watch page's HTML right here, so
+      // use it for an immediate first reading, then keep it fresh on its
+      // own slower timer (no point re-fetching the whole page every second).
+      const initialCount = parseViewerCountFromHtml(html);
+      if (initialCount !== null) this.emit('viewerCount', initialCount);
+      this.#viewerTimer = setInterval(() => this.#pollViewerCount(), 20_000);
+
       this.emit('start', this.liveId);
       return true;
     } catch (err) {
@@ -244,11 +270,21 @@ export class LiveChat extends EventEmitter {
   }
 
   stop(reason) {
+    if (this.#viewerTimer) { clearInterval(this.#viewerTimer); this.#viewerTimer = null; }
     if (this.#timer) {
       clearInterval(this.#timer);
       this.#timer = null;
       this.emit('end', reason);
     }
+  }
+
+  async #pollViewerCount() {
+    if (!this.liveId) return;
+    try {
+      const html = await fetchText(`https://www.youtube.com/watch?v=${this.liveId}`);
+      const count = parseViewerCountFromHtml(html);
+      if (count !== null) this.emit('viewerCount', count);
+    } catch { /* transient network hiccup — next tick retries */ }
   }
 
   async #execute() {

@@ -2,6 +2,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { LiveChat } from './live-chat.js';
+import { TwitchChat } from './platforms/twitch.js';
+import { TikTokChat } from './platforms/tiktok.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import https from 'https';
@@ -100,11 +102,17 @@ app.get('/proxy', (req, res) => {
 
 // ── State ─────────────────────────────────────────────────────────
 const clients = new Set();
-let liveChat = null;
-let currentConfig = null;
-let retryTimer = null;
-let retryCount = 0;
-let sessionId = 0; // incremented on each startChat to discard stale events
+let sessionId = 0; // incremented on each startAll to discard stale events
+
+const PLATFORMS = ['youtube', 'twitch', 'tiktok'];
+// Per-platform connection state, so any combination can run at once.
+const platformState = {
+  youtube: { instance: null, config: null, retryTimer: null, retryCount: 0 },
+  twitch:  { instance: null, config: null, retryTimer: null, retryCount: 0 },
+  tiktok:  { instance: null, config: null, retryTimer: null, retryCount: 0 },
+};
+// Last known viewer count per platform — combined into one number for the overlay.
+const viewerCounts = { youtube: null, twitch: null, tiktok: null };
 
 function broadcast(data) {
   const msg = JSON.stringify(data);
@@ -140,117 +148,171 @@ function fetchBase64(url) {
   });
 }
 
-// ── YouTube chat connection with auto-retry ───────────────────────
-async function startChat(config) {
-  if (liveChat) { liveChat.stop(); liveChat = null; }
-  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+// ── Normalize one platform's raw chat item into the wire message ──
+// Every platform connector (LiveChat, TwitchChat, TikTokChat) emits items
+// shaped the same way (author/message/isModerator/etc.), so this one
+// function builds the broadcastable message for all three.
+async function buildChatMessage(item, platform) {
+  console.log('[ITEM]', JSON.stringify({
+    platform,
+    id: item.id,
+    author: item.author?.name,
+    channelId: item.author?.channelId,
+    isOwner: item.isOwner,
+    isModerator: item.isModerator,
+    isMembership: item.isMembership,
+    msgLength: item.message?.length,
+  }));
 
-  currentConfig = config;
-  const mySession = ++sessionId;
+  const isMod    = item.isModerator  || false;
+  const isMember = item.isMembership || false;
+  const role = isMod ? 'mod' : isMember ? 'member' : 'chatter';
+
+  const rawParts = (item.message || []).map(p => {
+    // Any emoji/image with a URL → fetch as image (covers custom, member and YouTube platform emojis)
+    if (p.url) return { t: 'img', url: p.url, alt: p.emojiText || p.alt || '' };
+    if (p.emojiText) return { t: 'text', v: p.emojiText };
+    if (p.text)      return { t: 'text', v: p.text };
+    return null;
+  }).filter(Boolean);
+
+  const parts = await Promise.all(rawParts.map(async p => {
+    if (p.t !== 'img') return p;
+    const src = await fetchBase64(p.url);
+    return { t: 'img', src: src || null, alt: p.alt };
+  }));
+
+  const message = parts.map(p => p.v || p.alt || '').join('');
+  if (!message.trim() && !parts.some(p => p.t === 'img' && p.src) && !item.superchat) return null;
+
+  const avatarUrl = item.author.thumbnail?.url;
+  const badgeUrl  = item.author.badge?.thumbnail?.url;
+  return {
+    type: 'chat',
+    platform,
+    id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    author: item.author.name || 'Anonymous',
+    avatar: avatarUrl ? `/proxy?url=${encodeURIComponent(avatarUrl)}` : '',
+    badgeIcon: badgeUrl ? `/proxy?url=${encodeURIComponent(badgeUrl)}` : null,
+    parts,
+    message,
+    timestamp: item.timestamp instanceof Date ? item.timestamp.getTime() : Date.now(),
+    role,
+    superchat: item.superchat
+      ? { amount: item.superchat.amount, color: item.superchat.color }
+      : null,
+  };
+}
+
+function broadcastViewerTotal() {
+  const known = Object.values(viewerCounts).filter(v => v !== null);
+  if (!known.length) return;
+  broadcast({ type: 'viewerCount', count: known.reduce((a, b) => a + b, 0) });
+}
+
+function stopPlatform(name) {
+  const s = platformState[name];
+  if (s.instance) { try { s.instance.stop(); } catch { /* already gone */ } s.instance = null; }
+  if (s.retryTimer) { clearTimeout(s.retryTimer); s.retryTimer = null; }
+  s.config = null;
+  s.retryCount = 0;
+  viewerCounts[name] = null;
+}
+
+function scheduleRetry(name, mySession) {
+  const s = platformState[name];
+  if (s.retryTimer) return;
+  s.retryCount++;
+  // Gradual back-off: 5 s, 10 s, 20 s … max 60 s
+  const delay = Math.min(5000 * Math.pow(1.5, s.retryCount - 1), 60000);
+  console.log(`[${name}] Retrying in ${Math.round(delay / 1000)} s…`);
+  s.retryTimer = setTimeout(() => {
+    s.retryTimer = null;
+    if (sessionId === mySession && s.config) startPlatform(name, s.config, mySession);
+  }, delay);
+}
+
+// ── Single-platform connection with auto-retry ─────────────────────
+async function startPlatform(name, config, mySession) {
+  const s = platformState[name];
+  if (s.instance) { try { s.instance.stop(); } catch { /* already gone */ } s.instance = null; }
+  if (s.retryTimer) { clearTimeout(s.retryTimer); s.retryTimer = null; }
+  s.config = config;
+
+  let instance;
+  try {
+    if (name === 'youtube') instance = new LiveChat(config);
+    else if (name === 'twitch') instance = new TwitchChat(config.channel);
+    else if (name === 'tiktok') instance = new TikTokChat(config.username);
+    else return;
+  } catch (err) {
+    console.error(`[${name}] Init error:`, err.message);
+    scheduleRetry(name, mySession);
+    return;
+  }
+
+  s.instance = instance;
+
+  instance.on('chat', async (item) => {
+    if (sessionId !== mySession) return;
+    s.retryCount = 0;
+    const built = await buildChatMessage(item, name);
+    if (built) broadcast(built);
+  });
+
+  instance.on('delete', (id) => {
+    if (sessionId !== mySession) return;
+    broadcast({ type: 'delete', id, platform: name });
+  });
+
+  instance.on('error', (err) => {
+    console.error(`[${name}] error:`, err?.message || err);
+  });
+
+  instance.on('viewerCount', (count) => {
+    if (sessionId !== mySession) return;
+    viewerCounts[name] = count;
+    broadcastViewerTotal();
+  });
+
+  instance.on('end', () => {
+    if (sessionId !== mySession) return;
+    console.log(`[${name}] Stream ended or disconnected — scheduling retry`);
+    broadcast({ type: 'status', platform: name, status: 'reconnecting' });
+    viewerCounts[name] = null;
+    scheduleRetry(name, mySession);
+  });
 
   try {
-    liveChat = new LiveChat(config);
-
-    liveChat.on('chat', async (item) => {
-      if (sessionId !== mySession) return;
-      retryCount = 0;
-
-      console.log('[ITEM]', JSON.stringify({
-        id: item.id,
-        author: item.author?.name,
-        channelId: item.author?.channelId,
-        isOwner: item.isOwner,
-        isModerator: item.isModerator,
-        isMembership: item.isMembership,
-        msgLength: item.message?.length,
-      }));
-
-      const isMod    = item.isModerator  || false;
-      const isMember = item.isMembership || false;
-      const role = isMod ? 'mod' : isMember ? 'member' : 'chatter';
-
-      const rawParts = (item.message || []).map(p => {
-        // Any emoji/image with a URL → fetch as image (covers custom, member and YouTube platform emojis)
-        if (p.url) return { t: 'img', url: p.url, alt: p.emojiText || p.alt || '' };
-        if (p.emojiText) return { t: 'text', v: p.emojiText };
-        if (p.text)      return { t: 'text', v: p.text };
-        return null;
-      }).filter(Boolean);
-
-      const parts = await Promise.all(rawParts.map(async p => {
-        if (p.t !== 'img') return p;
-        const src = await fetchBase64(p.url);
-        return { t: 'img', src: src || null, alt: p.alt };
-      }));
-
-      const message = parts.map(p => p.v || p.alt || '').join('');
-      if (!message.trim() && !parts.some(p => p.t === 'img' && p.src) && !item.superchat) return;
-
-      const avatarUrl = item.author.thumbnail?.url;
-      const badgeUrl  = item.author.badge?.thumbnail?.url;
-      broadcast({
-        type: 'chat',
-        id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        author: item.author.name || 'Anonymous',
-        avatar: avatarUrl ? `/proxy?url=${encodeURIComponent(avatarUrl)}` : '',
-        badgeIcon: badgeUrl ? `/proxy?url=${encodeURIComponent(badgeUrl)}` : null,
-        parts,
-        message,
-        timestamp: item.timestamp instanceof Date ? item.timestamp.getTime() : Date.now(),
-        role,
-        superchat: item.superchat
-          ? { amount: item.superchat.amount, color: item.superchat.color }
-          : null,
-      });
-    });
-
-    liveChat.on('delete', (id) => {
-      if (sessionId !== mySession) return;
-      broadcast({ type: 'delete', id });
-    });
-
-    liveChat.on('error', (err) => {
-      const msg = err?.message || String(err);
-      console.error('[chat error]', msg);
-    });
-
-    liveChat.on('viewerCount', (count) => {
-      if (sessionId !== mySession) return;
-      broadcast({ type: 'viewerCount', count });
-    });
-
-    liveChat.on('end', () => {
-      console.log('[chat] Stream ended or disconnected — scheduling retry');
-      broadcast({ type: 'status', status: 'reconnecting' });
-      scheduleRetry();
-    });
-
-    const ok = await liveChat.start();
+    const ok = await instance.start();
+    if (sessionId !== mySession) return;
     if (!ok) {
-      console.log('[chat] Could not connect — stream may not be live yet');
-      broadcast({ type: 'status', status: 'waiting', message: 'Waiting for live stream…' });
-      scheduleRetry();
+      console.log(`[${name}] Could not connect — may not be live yet`);
+      broadcast({ type: 'status', platform: name, status: 'waiting' });
+      scheduleRetry(name, mySession);
     } else {
-      console.log('[chat] Connected to live chat!');
-      broadcast({ type: 'status', status: 'connected' });
+      console.log(`[${name}] Connected!`);
+      broadcast({ type: 'status', platform: name, status: 'connected' });
     }
   } catch (err) {
-    console.error('[chat] Startup error:', err.message);
-    broadcast({ type: 'status', status: 'error', message: err.message });
-    scheduleRetry();
+    if (sessionId !== mySession) return;
+    console.error(`[${name}] Startup error:`, err.message);
+    broadcast({ type: 'status', platform: name, status: 'error', message: err.message });
+    scheduleRetry(name, mySession);
   }
 }
 
-function scheduleRetry() {
-  if (retryTimer) return;
-  retryCount++;
-  // Gradual back-off: 5 s, 10 s, 20 s … max 60 s
-  const delay = Math.min(5000 * Math.pow(1.5, retryCount - 1), 60000);
-  console.log(`[chat] Retrying in ${Math.round(delay / 1000)} s…`);
-  retryTimer = setTimeout(() => {
-    retryTimer = null;
-    if (currentConfig) startChat(currentConfig);
-  }, delay);
+// ── Start/stop whichever platforms are in the requested config ─────
+// cfg looks like: { youtube?: {channelId|liveId}, twitch?: {channel}, tiktok?: {username} }
+// Any subset is valid — this is what makes "YouTube only" / "Twitch only" /
+// "all three" all just work off the same code path.
+function startAll(cfg) {
+  sessionId++;
+  const mySession = sessionId;
+  for (const name of PLATFORMS) {
+    if (cfg[name]) startPlatform(name, cfg[name], mySession);
+    else stopPlatform(name);
+  }
 }
 
 // ── WebSocket clients ─────────────────────────────────────────────
@@ -263,13 +325,11 @@ wss.on('connection', (ws) => {
     try {
       const msg = JSON.parse(raw);
       if (msg.type === 'start') {
-        retryCount = 0;
-        const config = msg.channelId
-          ? { channelId: msg.channelId }
-          : msg.liveId
-          ? { liveId: msg.liveId }
-          : null;
-        if (config) startChat(config);
+        const cfg = {};
+        if (msg.youtube && (msg.youtube.channelId || msg.youtube.liveId)) cfg.youtube = msg.youtube;
+        if (msg.twitch && msg.twitch.channel) cfg.twitch = msg.twitch;
+        if (msg.tiktok && msg.tiktok.username) cfg.tiktok = msg.tiktok;
+        if (Object.keys(cfg).length) startAll(cfg);
       }
     } catch { /* ignore malformed messages */ }
   });
@@ -277,9 +337,12 @@ wss.on('connection', (ws) => {
   ws.on('close', () => clients.delete(ws));
   ws.on('error', () => clients.delete(ws));
 
-  // Send current connection status to newly joined client
-  if (currentConfig) {
-    ws.send(JSON.stringify({ type: 'status', status: liveChat ? 'connected' : 'reconnecting' }));
+  // Send current connection status per active platform to newly joined client
+  for (const name of PLATFORMS) {
+    const s = platformState[name];
+    if (s.config) {
+      ws.send(JSON.stringify({ type: 'status', platform: name, status: s.instance ? 'connected' : 'reconnecting' }));
+    }
   }
 });
 
