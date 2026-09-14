@@ -519,7 +519,7 @@ body.overlay-mode { background: transparent; }
   object-fit: contain;
   flex-shrink: 0;
   vertical-align: -2px;
-  margin-right: 4px;
+  margin-left: 4px;
 }
 
 .message.chatter .name { color: var(--color-chatter); }

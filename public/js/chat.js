@@ -523,6 +523,7 @@ async function runSetup() {
       ...(textStyles.italic    ? { textItalic:    '1' } : {}),
       ...(textStyles.underline ? { textUnderline: '1' } : {}),
       ...(document.getElementById('show-viewers')?.checked ? { showViewers: '1' } : {}),
+      ...(document.getElementById('show-platform-icon')?.checked === false ? { platformIcon: '0' } : {}),
     });
     const serverBase = serverUrlInput.value.trim().replace(/\/$/, '') || location.origin;
     const url = `${serverBase}/overlay?${p.toString()}`;
@@ -689,7 +690,10 @@ function addMessage({ id, author, avatar, message, parts, role, badgeIcon, super
 
   const name = document.createElement('span');
   name.className = 'name';
-  if (platform && PLATFORM_ICONS[platform]) {
+  name.appendChild(document.createTextNode(author));
+  // Platform icon after the name — optional, controlled by the "platformIcon"
+  // URL param (missing/'1' = shown, '0' = hidden), set from the setup screen.
+  if (platform && PLATFORM_ICONS[platform] && params.get('platformIcon') !== '0') {
     const platformIcon = document.createElement('img');
     platformIcon.className = 'platform-icon';
     platformIcon.alt = platform;
@@ -697,7 +701,6 @@ function addMessage({ id, author, avatar, message, parts, role, badgeIcon, super
     platformIcon.src = PLATFORM_ICONS[platform];
     name.appendChild(platformIcon);
   }
-  name.appendChild(document.createTextNode(author));
 
   if (role === 'mod' || role === 'member') {
     const icon = document.createElement('img');

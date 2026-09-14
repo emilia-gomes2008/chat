@@ -218,14 +218,31 @@ function parseChatData(data) {
 // Reliable viewer count source: scrape the watch page itself. The chat
 // continuation's header field is intermittent; the watch page's rendered
 // data reliably includes one of these fields.
+//
+// IMPORTANT: don't just grep the whole page for "X watching" / "viewCount" —
+// the watch page also embeds the sidebar of recommended/related videos,
+// which can include OTHER currently-live streams with their own (often much
+// smaller) viewer counts. Those can appear earlier in the raw HTML than the
+// actual video's own number, so a blind first-match grabs the wrong stream's
+// count. Anchor to "videoDetails" instead — it's the target video's own
+// data object and appears exactly once per page.
 function parseViewerCountFromHtml(html) {
-  const m = html.match(/"([\d,]+) watching now"/)
-         || html.match(/"([\d,]+)\s*watching"/i)
-         || html.match(/"concurrentViewers":"(\d+)"/)
-         || html.match(/"viewCount":"(\d+)"/);
-  if (!m) return null;
-  const n = parseInt(m[1].replace(/,/g, ''), 10);
-  return Number.isNaN(n) ? null : n;
+  const idx = html.indexOf('"videoDetails"');
+  if (idx !== -1) {
+    const chunk = html.slice(idx, idx + 2000);
+    const m = chunk.match(/"viewCount":"(\d+)"/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  // Fallback for the rare page that lacks videoDetails in the initial HTML.
+  const m2 = html.match(/"([\d,]+) watching now"/);
+  if (m2) {
+    const n = parseInt(m2[1].replace(/,/g, ''), 10);
+    return Number.isNaN(n) ? null : n;
+  }
+  return null;
 }
 
 export class LiveChat extends EventEmitter {
