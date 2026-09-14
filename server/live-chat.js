@@ -219,24 +219,37 @@ function parseChatData(data) {
 // continuation's header field is intermittent; the watch page's rendered
 // data reliably includes one of these fields.
 //
-// IMPORTANT: don't just grep the whole page for "X watching" / "viewCount" —
-// the watch page also embeds the sidebar of recommended/related videos,
-// which can include OTHER currently-live streams with their own (often much
-// smaller) viewer counts. Those can appear earlier in the raw HTML than the
-// actual video's own number, so a blind first-match grabs the wrong stream's
-// count. Anchor to "videoDetails" instead — it's the target video's own
-// data object and appears exactly once per page.
+// IMPORTANT — two traps here:
+// 1. Don't blindly grep the whole page for "X watching" / "viewCount": the
+//    page also embeds the sidebar of recommended/related videos, which can
+//    include OTHER currently-live streams with their own (often smaller)
+//    viewer counts appearing earlier in the raw HTML than the real one.
+// 2. `videoDetails.viewCount` is NOT the concurrent viewer count — for a
+//    live stream it's the cumulative lifetime view count, which keeps
+//    climbing the whole time the stream is live and will read much higher
+//    than the number of people actually watching right now. The real
+//    "watching now" figure lives in `videoViewCountRenderer`, guarded by
+//    an `isLive:true` flag alongside it.
 function parseViewerCountFromHtml(html) {
-  const idx = html.indexOf('"videoDetails"');
+  const idx = html.indexOf('"videoViewCountRenderer"');
   if (idx !== -1) {
-    const chunk = html.slice(idx, idx + 2000);
-    const m = chunk.match(/"viewCount":"(\d+)"/);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (!Number.isNaN(n)) return n;
+    const chunk = html.slice(idx, idx + 1500);
+    if (/"isLive":true/.test(chunk)) {
+      // Prefer the exact number (from the text runs) over the abbreviated
+      // "extraShortViewCount" ("1.2K"), which would parse wrong as just "1".
+      const exact = chunk.match(/"runs":\[\{"text":"([\d,]+)"\}/);
+      if (exact) {
+        const n = parseInt(exact[1].replace(/,/g, ''), 10);
+        if (!Number.isNaN(n)) return n;
+      }
+      const short = chunk.match(/"simpleText":"([\d,]+)\s*watching/i);
+      if (short) {
+        const n = parseInt(short[1].replace(/,/g, ''), 10);
+        if (!Number.isNaN(n)) return n;
+      }
     }
   }
-  // Fallback for the rare page that lacks videoDetails in the initial HTML.
+  // Fallback for the rare page that lacks that renderer in the initial HTML.
   const m2 = html.match(/"([\d,]+) watching now"/);
   if (m2) {
     const n = parseInt(m2[1].replace(/,/g, ''), 10);
