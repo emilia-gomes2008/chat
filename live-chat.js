@@ -201,6 +201,54 @@ function parseChatData(data) {
   return { chatItems, deletedIds, continuation };
 }
 
+// ── Concurrent viewer count ──────────────────────────────────────
+// The "watching now" number is not part of the chat feed, so it is polled
+// separately from the same updated_metadata endpoint the watch page uses.
+
+// Initial value, read straight out of the watch page we already fetched.
+// The page can contain several "videoViewCountRenderer" blocks (YouTube reuses
+// that renderer for view counts on sidebar/recommended videos too), so scan
+// every occurrence and use the first one that's actually marked as live.
+function parseViewersFromHtml(html) {
+  const marker = '"videoViewCountRenderer"';
+  let from = 0;
+
+  while (true) {
+    const at = html.indexOf(marker, from);
+    if (at === -1) return null;
+    from = at + marker.length;
+
+    const chunk = html.slice(at, at + 1500);
+    if (!/"isLive":\s*true/.test(chunk) && !/watching/i.test(chunk)) continue; // not the live counter
+
+    const exact = chunk.match(/"originalViewCount":"(\d+)"/);
+    if (exact) return Number(exact[1]);
+
+    const runs = chunk.match(/"runs":\[\{"text":"([^"]+)"/);
+    if (runs) {
+      const n = Number(runs[1].replace(/\D/g, ''));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+}
+
+// Subsequent values, from the polled JSON endpoint.
+function parseViewersFromMetadata(data) {
+  for (const action of data?.actions || []) {
+    const vcr = action?.updateViewershipAction?.viewCount?.videoViewCountRenderer;
+    if (!vcr) continue;
+
+    if (vcr.originalViewCount != null) {
+      const n = Number(vcr.originalViewCount);
+      if (Number.isFinite(n)) return n;
+    }
+    const text = (vcr.viewCount?.runs || []).map(r => r.text || '').join('');
+    const n = Number(text.replace(/\D/g, ''));
+    if (text && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 export class LiveChat extends EventEmitter {
   liveId;
   #id;
@@ -208,7 +256,14 @@ export class LiveChat extends EventEmitter {
   #options = null;
   #timer = null;
 
-  constructor(id, interval = 1000) {
+  // Viewer-count polling runs on its own, slower timer.
+  #viewerInterval;
+  #viewerTimer = null;
+  #viewerContinuation = null;
+  #viewerFails = 0;
+  #lastViewers = null;
+
+  constructor(id, interval = 1000, viewerInterval = 10_000) {
     super();
     if (!id || (!('channelId' in id) && !('liveId' in id) && !('handle' in id))) {
       throw new TypeError('Required channelId, liveId, or handle');
@@ -216,7 +271,11 @@ export class LiveChat extends EventEmitter {
     if ('liveId' in id) this.liveId = id.liveId;
     this.#id = id;
     this.#interval = interval;
+    this.#viewerInterval = viewerInterval;
   }
+
+  /** Most recent concurrent viewer count, or null if not known yet. */
+  get viewers() { return this.#lastViewers; }
 
   async start() {
     if (this.#timer) return false;
@@ -226,6 +285,11 @@ export class LiveChat extends EventEmitter {
       this.liveId = this.#options.liveId;
       this.#timer = setInterval(() => this.#execute(), this.#interval);
       this.emit('start', this.liveId);
+
+      // Seed the viewer count from the page we just loaded, then keep it fresh.
+      this.#emitViewers(parseViewersFromHtml(html));
+      this.#scheduleViewers(this.#viewerInterval);
+
       return true;
     } catch (err) {
       this.emit('error', err);
@@ -234,11 +298,78 @@ export class LiveChat extends EventEmitter {
   }
 
   stop(reason) {
+    if (this.#viewerTimer) {
+      clearTimeout(this.#viewerTimer);
+      this.#viewerTimer = null;
+    }
+    this.#viewerContinuation = null;
+    this.#viewerFails = 0;
+
     if (this.#timer) {
       clearInterval(this.#timer);
       this.#timer = null;
       this.emit('end', reason);
     }
+  }
+
+  #emitViewers(count) {
+    if (count === null || count === undefined) return;
+    if (count === this.#lastViewers) return;
+    this.#lastViewers = count;
+    this.emit('viewers', count);
+  }
+
+  #scheduleViewers(delay) {
+    if (this.#viewerTimer) clearTimeout(this.#viewerTimer);
+    this.#viewerTimer = setTimeout(() => this.#pollViewers(), delay);
+  }
+
+  async #pollViewers() {
+    this.#viewerTimer = null;
+    if (!this.#options || !this.#timer) return;
+
+    let next = this.#viewerInterval;
+    try {
+      const url = `https://www.youtube.com/youtubei/v1/updated_metadata?key=${this.#options.apiKey}`;
+      const res = await postJson(url, {
+        context: { client: { clientName: 'WEB', clientVersion: this.#options.clientVersion } },
+        // First call goes by videoId; after that YouTube hands back a continuation token.
+        ...(this.#viewerContinuation
+          ? { continuation: this.#viewerContinuation }
+          : { videoId: this.liveId }),
+      });
+
+      const count = parseViewersFromMetadata(res);
+      if (count === null) {
+        this.#viewerFails++;
+        this.emit('error', new Error('viewer poll: no viewer count in response (count may be hidden on this stream)'));
+      }
+      else { this.#viewerFails = 0; this.#emitViewers(count); }
+
+      const cont = res?.continuation?.timedContinuationData
+                || res?.continuation?.invalidationContinuationData;
+      if (cont?.continuation) this.#viewerContinuation = cont.continuation;
+      // Honour YouTube's suggested poll interval, within sane bounds.
+      if (cont?.timeoutMs) next = Math.min(Math.max(Number(cont.timeoutMs), 5_000), 60_000);
+    } catch (err) {
+      this.#viewerFails++;
+      this.#viewerContinuation = null; // start fresh from videoId next time
+      next = Math.max(this.#viewerInterval, 15_000);
+      this.emit('error', new Error(`viewer poll failed: ${err?.message || err}`));
+    }
+
+    // If the JSON endpoint keeps coming up empty, fall back to re-reading the watch page.
+    if (this.#viewerFails >= 3) {
+      this.#viewerFails = 0;
+      this.#viewerContinuation = null;
+      try {
+        const html = await fetchText(idToUrl(this.#id));
+        this.#emitViewers(parseViewersFromHtml(html));
+      } catch { /* leave the previous value in place */ }
+      next = Math.max(next, 20_000);
+    }
+
+    if (this.#timer) this.#scheduleViewers(next);
   }
 
   async #execute() {

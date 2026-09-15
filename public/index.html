@@ -193,6 +193,30 @@
 
       </div>
 
+      <div class="section-title">Viewer Count</div>
+      <div class="field-group">
+        <div class="bg-row">
+          <label class="border-toggle">
+            <input type="checkbox" id="viewers-enabled" checked>
+            <span>Show how many people are watching right now</span>
+          </label>
+        </div>
+        <div class="bg-row">
+          <span>Position</span>
+          <select id="viewers-position">
+            <option value="top-right" selected>Top right</option>
+            <option value="top-left">Top left</option>
+            <option value="bottom-right">Bottom right</option>
+            <option value="bottom-left">Bottom left</option>
+          </select>
+        </div>
+        <div class="bg-row">
+          <span>Label</span>
+          <input type="text" id="viewers-label" class="bg-image-input" value="watching now" maxlength="28" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="preset-hint">Live concurrent viewers — not total views. Updates every few seconds.</p>
+      </div>
+
       <div id="font-section">
       <div class="section-title">Font</div>
       <div class="field-group">
@@ -249,6 +273,11 @@
 
   <!-- ── Chat overlay ─────────────────────────────────────────── -->
   <div id="overlay" class="hidden">
+    <div id="viewer-count" class="viewer-count hidden">
+      <span class="vc-dot"></span>
+      <span class="vc-number">—</span>
+      <span class="vc-label">watching now</span>
+    </div>
     <div id="messages"></div>
   </div>
 

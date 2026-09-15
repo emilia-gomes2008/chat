@@ -12,6 +12,37 @@ YouTube live chat overlay for use in OBS Studio. Displays messages with avatar, 
 
 ---
 
+---
+
+## Live viewer count
+
+The overlay can show how many people have the stream open **right now** (concurrent
+viewers), which is a different number from total views.
+
+Turn it on under **Viewer Count** on the setup screen. You can pick which corner it
+sits in and change the "watching now" label.
+
+How it works: the server polls the same `updated_metadata` endpoint the YouTube watch
+page uses, roughly every 10 seconds (it follows the refresh interval YouTube suggests).
+The first number comes straight out of the watch page that is already loaded when chat
+connects, so the badge fills in immediately. If that endpoint ever returns nothing three
+times in a row, it falls back to re-reading the watch page.
+
+The number greys out and the dot stops pulsing when the count goes stale, i.e. the stream
+ended or the overlay lost the server.
+
+The count is also available as plain JSON at `http://localhost:3000/viewers`:
+
+```json
+{ "count": 1234, "live": true }
+```
+
+`count` is `null` when no stream is connected.
+
+**Note:** YouTube itself hides the live viewer count on some streams (the streamer can
+turn it off, and it is hidden on very small streams). When that happens there is no number
+to read and the badge stays on the dash.
+
 ## Requirements
 
 - [Node.js](https://nodejs.org) (version 18 or higher - download the LTS version)

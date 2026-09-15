@@ -639,14 +639,12 @@ body.overlay-mode { background: transparent; }
   object-fit: contain;
 }
 
-/* ── Viewer count badge ───────────────────────────────────────── */
+/* ── Viewer count badge ───────────────────────────── */
 .viewer-count {
   position: fixed;
-  top: 12px;
-  right: 12px;
   background: rgba(0, 0, 0, 0.68);
   color: #fff;
-  font-size: 13px;
+  font-size: calc(var(--chat-font-size, 16px) * 0.85);
   font-weight: 600;
   padding: 5px 12px 5px 8px;
   border-radius: 20px;
@@ -658,7 +656,62 @@ body.overlay-mode { background: transparent; }
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
+
+/* Corner chosen on the setup screen */
+.viewer-count.pos-top-left     { top: 12px;    left: 12px;  }
+.viewer-count.pos-top-right    { top: 12px;    right: 12px; }
+.viewer-count.pos-bottom-left  { bottom: 12px; left: 12px;  }
+.viewer-count.pos-bottom-right { bottom: 12px; right: 12px; }
+
+/* Pulsing live dot */
+.vc-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff2020;
+  box-shadow: 0 0 6px rgba(255, 32, 32, 0.9);
+  animation: vc-pulse 2s ease-in-out infinite;
+}
+
+@keyframes vc-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.vc-number {
+  display: inline-block;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.vc-label { opacity: 0.85; font-weight: 500; }
+
+/* No number yet, or the stream dropped */
+.viewer-count.stale { opacity: 0.6; }
+.viewer-count.stale .vc-dot {
+  background: #888;
+  box-shadow: none;
+  animation: none;
+}
+
+/* Quick pop whenever the number changes */
+.viewer-count.bump .vc-number { animation: vc-bump 0.45s ease; }
+
+@keyframes vc-bump {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* Theme presets */
+.preset-fnaf  .viewer-count { font-family: 'FiveFontsatFreddys', Consolas, monospace; letter-spacing: 0.06em; }
+.preset-bendy .viewer-count { font-family: 'Permanent Marker', cursive; }
+.preset-bendy .vc-dot       { background: #ffd400; box-shadow: 0 0 6px rgba(255, 212, 0, 0.9); }
+.preset-poppy .vc-dot       { background: #ff9d2e; box-shadow: 0 0 6px rgba(255, 157, 46, 0.9); }
 
 /* ── Font face ───────────────────────────────────────────────── */
 @font-face {

@@ -105,6 +105,7 @@ let currentConfig = null;
 let retryTimer = null;
 let retryCount = 0;
 let sessionId = 0; // incremented on each startChat to discard stale events
+let lastViewers = null; // most recent concurrent viewer count (null = unknown)
 function broadcast(data) {
   const msg = JSON.stringify(data);
   for (const ws of clients) {
@@ -145,6 +146,7 @@ async function startChat(config) {
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   currentConfig = config;
   const mySession = ++sessionId;
+  lastViewers = null;
 
   try {
     liveChat = new LiveChat(config);
@@ -202,6 +204,14 @@ async function startChat(config) {
       });
     });
 
+    // Concurrent viewers — people with the stream open right now
+    liveChat.on('viewers', (count) => {
+      if (sessionId !== mySession) return;
+      lastViewers = count;
+      console.log(`[viewers] ${count} watching now`);
+      broadcast({ type: 'viewers', count });
+    });
+
     liveChat.on('delete', (id) => {
       if (sessionId !== mySession) return;
       broadcast({ type: 'delete', id });
@@ -214,7 +224,9 @@ async function startChat(config) {
 
     liveChat.on('end', () => {
       console.log('[chat] Stream ended or disconnected — scheduling retry');
+      lastViewers = null;
       broadcast({ type: 'status', status: 'reconnecting' });
+      broadcast({ type: 'viewers', count: null });
       scheduleRetry();
     });
 
@@ -273,6 +285,7 @@ wss.on('connection', (ws) => {
   // Send current connection status to newly joined client
   if (currentConfig) {
     ws.send(JSON.stringify({ type: 'status', status: liveChat ? 'connected' : 'reconnecting' }));
+    ws.send(JSON.stringify({ type: 'viewers', count: lastViewers }));
   }
 });
 
@@ -285,6 +298,12 @@ const heartbeat = setInterval(() => {
   }
 }, 30_000);
 wss.on('close', () => clearInterval(heartbeat));
+
+// ── Viewer count as plain JSON ─────────────────────────
+app.get('/viewers', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ count: lastViewers, live: lastViewers !== null });
+});
 
 // ── Overlay route (used by OBS Browser Source) ───────────────────
 app.get('/overlay', (req, res) => {

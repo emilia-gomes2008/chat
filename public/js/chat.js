@@ -6,6 +6,7 @@ const MAX_MESSAGES = 30;
 const setupEl    = document.getElementById('setup');
 const overlayEl  = document.getElementById('overlay');
 const messagesEl = document.getElementById('messages');
+const viewerEl   = document.getElementById('viewer-count');
 
 // ── Role icons ────────────────────────────────────────────────
 const MOD_ICON    = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>')}`;
@@ -46,6 +47,45 @@ if (channelId || liveId) {
   runOverlay();
 } else {
   runSetup();
+}
+
+// ── Live viewer count ───────────────────────────────
+// How many people have the stream open right now (not total views).
+function initViewerCount() {
+  if (!viewerEl) return;
+  if (params.get('viewers') === '0') return; // switched off on the setup screen
+
+  viewerEl.classList.add(`pos-${params.get('viewersPos') || 'top-right'}`);
+
+  const label = params.get('viewersLabel');
+  if (label !== null) viewerEl.querySelector('.vc-label').textContent = label;
+
+  viewerEl.classList.remove('hidden');
+  setViewerCount(null); // show the placeholder until the first number arrives
+}
+
+function setViewerCount(count) {
+  if (!viewerEl || viewerEl.classList.contains('hidden')) return;
+  const numEl = viewerEl.querySelector('.vc-number');
+
+  if (count === null || count === undefined) {
+    numEl.textContent = '—';
+    viewerEl.classList.add('stale');
+    return;
+  }
+
+  viewerEl.classList.remove('stale');
+  const next = Number(count).toLocaleString();
+  if (numEl.textContent === next) return;
+
+  numEl.textContent = next;
+  viewerEl.classList.remove('bump');
+  void viewerEl.offsetWidth; // force a reflow so the animation replays
+  viewerEl.classList.add('bump');
+}
+
+function markViewersStale() {
+  if (viewerEl && !viewerEl.classList.contains('hidden')) viewerEl.classList.add('stale');
 }
 
 // ── Style helpers ─────────────────────────────────────────────
@@ -470,6 +510,11 @@ async function runSetup() {
     document.documentElement.style.setProperty('--msg-radius', `${msgRadiusSlider.value}px`);
   });
 
+  // ── Viewer count controls ───────────────────────
+  const viewersEnabled  = document.getElementById('viewers-enabled');
+  const viewersPosition = document.getElementById('viewers-position');
+  const viewersLabelIn  = document.getElementById('viewers-label');
+
   // ── Server URL field ──────────────────────────────────────
   const serverUrlInput = document.getElementById('server-url');
   const defaultOrigin = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
@@ -504,6 +549,13 @@ async function runSetup() {
         : currentBgType === 'poppy'
         ? { preset: 'poppy' }
         : { msgBg: currentBgValue }),
+      ...(viewersEnabled.checked
+        ? {
+            viewers:      '1',
+            viewersPos:   viewersPosition.value,
+            viewersLabel: viewersLabelIn.value.trim(),
+          }
+        : { viewers: '0' }),
       textColor:       textColorInput.value.slice(1),
       msgRadius:       msgRadiusSlider.value,
       ...(borderEnabled.checked ? {
@@ -597,6 +649,7 @@ function runOverlay() {
   setupEl.classList.add('hidden');
   overlayEl.classList.remove('hidden');
   document.body.classList.add('overlay-mode');
+  initViewerCount();
 
   let reconnectDelay = 1000;
 
@@ -615,6 +668,8 @@ function runOverlay() {
           if (msg.id && seenIds.has(msg.id)) return;
           if (msg.id) seenIds.add(msg.id);
           addMessage(msg);
+        } else if (msg.type === 'viewers') {
+          setViewerCount(msg.count);
         } else if (msg.type === 'delete' && msg.id) {
           const el = msgElements.get(msg.id);
           if (el) { el.remove(); msgElements.delete(msg.id); }
@@ -623,6 +678,7 @@ function runOverlay() {
     });
 
     ws.addEventListener('close', () => {
+      markViewersStale();
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 1.5, 30_000);
     });
