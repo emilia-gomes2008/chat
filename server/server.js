@@ -20,6 +20,17 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
+// Log every single HTTP request that reaches this process — including the
+// raw upgrade attempt for the WebSocket — so there is no blind spot left
+// about what is or isn't actually hitting this server.
+app.use((req, res, next) => {
+  console.log(`[http] ${req.method} ${req.url}`);
+  next();
+});
+server.on('upgrade', (req) => {
+  console.log(`[http] WS upgrade request: ${req.url}`);
+});
+
 app.use(express.static(join(__dirname, 'public'), {
   etag: false,
   setHeaders: (res, filePath) => {
