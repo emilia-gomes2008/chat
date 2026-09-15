@@ -441,6 +441,17 @@ async function runSetup() {
   });
   applyBorder();
 
+  // ── Platform icon toggle (live preview feedback) ──────────
+  const showPlatformIconCheckbox = document.getElementById('show-platform-icon');
+  const fpPlatformIcon = document.getElementById('fp-platform-icon');
+  if (showPlatformIconCheckbox && fpPlatformIcon) {
+    const syncPlatformIconPreview = () => {
+      fpPlatformIcon.style.display = showPlatformIconCheckbox.checked ? '' : 'none';
+    };
+    showPlatformIconCheckbox.addEventListener('change', syncPlatformIconPreview);
+    syncPlatformIconPreview();
+  }
+
   // ── Text colour ───────────────────────────────────────────
   const textColorInput = document.getElementById('text-color');
   const applyTextColor = () => document.documentElement.style.setProperty('--text-color', textColorInput.value);

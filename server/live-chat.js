@@ -198,63 +198,87 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
-  // NOTE: header.liveChatHeaderRenderer.viewerCountText is only present on some
-  // polls (YouTube doesn't send it on every continuation response), so this is
-  // a bonus fast-path only — the real, reliable source is #pollViewerCount()
-  // below, which scrapes the watch page directly on its own timer.
-  let viewerCount = null;
-  try {
-    const runs = lcc.header?.liveChatHeaderRenderer?.viewerCountText?.runs;
-    if (runs?.length) {
-      const text = runs.map(r => r.text || '').join('');
-      const m = text.match(/[\d,]+/);
-      if (m) viewerCount = parseInt(m[0].replace(/,/g, ''), 10);
-    }
-  } catch { /* ignore */ }
-
-  return { chatItems, deletedIds, continuation, viewerCount };
+  return { chatItems, deletedIds, continuation };
 }
 
-// Reliable viewer count source: scrape the watch page itself. The chat
-// continuation's header field is intermittent; the watch page's rendered
-// data reliably includes one of these fields.
+// Reliable viewer count source: parse the watch page's embedded ytInitialData
+// JSON and walk it by key, instead of regex-scanning raw HTML text.
 //
-// IMPORTANT — two traps here:
-// 1. Don't blindly grep the whole page for "X watching" / "viewCount": the
-//    page also embeds the sidebar of recommended/related videos, which can
-//    include OTHER currently-live streams with their own (often smaller)
-//    viewer counts appearing earlier in the raw HTML than the real one.
-// 2. `videoDetails.viewCount` is NOT the concurrent viewer count — for a
-//    live stream it's the cumulative lifetime view count, which keeps
-//    climbing the whole time the stream is live and will read much higher
-//    than the number of people actually watching right now. The real
-//    "watching now" figure lives in `videoViewCountRenderer`, guarded by
-//    an `isLive:true` flag alongside it.
-function parseViewerCountFromHtml(html) {
-  const idx = html.indexOf('"videoViewCountRenderer"');
-  if (idx !== -1) {
-    const chunk = html.slice(idx, idx + 1500);
-    if (/"isLive":true/.test(chunk)) {
-      // Prefer the exact number (from the text runs) over the abbreviated
-      // "extraShortViewCount" ("1.2K"), which would parse wrong as just "1".
-      const exact = chunk.match(/"runs":\[\{"text":"([\d,]+)"\}/);
-      if (exact) {
-        const n = parseInt(exact[1].replace(/,/g, ''), 10);
-        if (!Number.isNaN(n)) return n;
-      }
-      const short = chunk.match(/"simpleText":"([\d,]+)\s*watching/i);
-      if (short) {
-        const n = parseInt(short[1].replace(/,/g, ''), 10);
-        if (!Number.isNaN(n)) return n;
-      }
+// Earlier regex-based attempts at this kept breaking in different ways:
+//   1. Scanning the whole page for "X watching" can match an unrelated,
+//      smaller live stream in the sidebar of recommended videos.
+//   2. `videoDetails.viewCount` is NOT concurrent viewers — for a live
+//      stream it's the cumulative lifetime view count, which keeps
+//      climbing and reads much higher than the real number.
+//   3. Matching on the English word "watching" fails outright on any other
+//      page locale (e.g. Portuguese "a ver agora"), and a "nearby text
+//      window" fallback can grab an unrelated number instead.
+// Real JSON parsing sidesteps all three: we find the exact renderer by its
+// key name, check its own isLive flag, and read its own viewCount runs —
+// regardless of language or of what else happens to be nearby in the HTML.
+
+// Extract a `"varName":{...}` or `var varName = {...}` JSON blob from HTML by
+// scanning for balanced braces (respecting quoted strings), since a plain
+// regex can't match arbitrarily-nested JSON.
+function extractJsonBlob(html, varName) {
+  let idx = html.indexOf(`"${varName}"`);
+  if (idx === -1) idx = html.indexOf(`var ${varName} =`);
+  if (idx === -1) return null;
+  const start = html.indexOf('{', idx);
+  if (start === -1) return null;
+
+  let depth = 0, inString = false, escaped = false;
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return html.slice(start, i + 1);
     }
   }
-  // Fallback for the rare page that lacks that renderer in the initial HTML.
-  const m2 = html.match(/"([\d,]+) watching now"/);
-  if (m2) {
-    const n = parseInt(m2[1].replace(/,/g, ''), 10);
-    return Number.isNaN(n) ? null : n;
+  return null;
+}
+
+// Recursively search a parsed ytInitialData tree for a live videoViewCountRenderer
+// and return its viewer count. Searching by key name (rather than assuming one
+// fixed path like twoColumnWatchNextResults) is resilient to YouTube serving a
+// slightly different page layout (A/B tests, mobile-style rendering, etc.).
+function findLiveViewerCount(node) {
+  if (!node || typeof node !== 'object') return null;
+
+  if (node.videoViewCountRenderer?.isLive) {
+    const runs = node.videoViewCountRenderer.viewCount?.runs;
+    if (runs?.length) {
+      const digits = runs.map(r => r.text || '').join('').replace(/[^\d]/g, '');
+      if (digits) return parseInt(digits, 10);
+    }
   }
+
+  for (const key in node) {
+    const val = node[key];
+    if (val && typeof val === 'object') {
+      const found = findLiveViewerCount(val);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+function parseViewerCountFromHtml(html) {
+  try {
+    const blob = extractJsonBlob(html, 'ytInitialData');
+    if (blob) {
+      const count = findLiveViewerCount(JSON.parse(blob));
+      if (count !== null) return count;
+    }
+  } catch { /* malformed/partial JSON — treat as "not found" this poll */ }
   return null;
 }
 
@@ -325,11 +349,10 @@ export class LiveChat extends EventEmitter {
         context: { client: { clientVersion: this.#options.clientVersion, clientName: 'WEB' } },
         continuation: this.#options.continuation,
       });
-      const { chatItems, deletedIds, continuation, viewerCount } = parseChatData(res);
+      const { chatItems, deletedIds, continuation } = parseChatData(res);
       this.#options.continuation = continuation;
       chatItems.forEach(item => this.emit('chat', item));
       deletedIds.forEach(id => this.emit('delete', id));
-      if (viewerCount !== null) this.emit('viewerCount', viewerCount);
     } catch (err) {
       this.emit('error', err);
     }
