@@ -198,117 +198,17 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
-  return { chatItems, deletedIds, continuation };
-}
-
-// Reliable viewer count source: parse the watch page's embedded ytInitialData
-// JSON and walk it by key, instead of regex-scanning raw HTML text.
-//
-// Earlier attempts at this kept breaking in different ways:
-//   1. Scanning the whole page for "X watching" can match an unrelated,
-//      smaller (or bigger) live stream recommended in the sidebar. Checking
-//      isLive alone doesn't rule this out — a sidebar video can genuinely
-//      be live too, and its own isLive:true count would win the search
-//      before ever reaching the real one, depending on JSON key order. This
-//      is fixed below by scoping the search to the page's primary column
-//      only, never the sidebar's `secondaryResults`.
-//   2. `videoDetails.viewCount` is NOT concurrent viewers — for a live
-//      stream it's the cumulative lifetime view count, which keeps
-//      climbing and reads much higher than the real number.
-//   3. Matching on the English word "watching" fails outright on any other
-//      page locale (e.g. Portuguese "a ver agora"), and a "nearby text
-//      window" fallback can grab an unrelated number instead.
-// Real JSON parsing sidesteps all three: we find the exact renderer by its
-// key name inside the correct part of the page, check its own isLive flag,
-// and read its own viewCount — regardless of language or of what else
-// happens to be nearby in the HTML.
-
-// Extract a `"varName":{...}` or `var varName = {...}` JSON blob from HTML by
-// scanning for balanced braces (respecting quoted strings), since a plain
-// regex can't match arbitrarily-nested JSON.
-function extractJsonBlob(html, varName) {
-  let idx = html.indexOf(`"${varName}"`);
-  if (idx === -1) idx = html.indexOf(`var ${varName} =`);
-  if (idx === -1) return null;
-  const start = html.indexOf('{', idx);
-  if (start === -1) return null;
-
-  let depth = 0, inString = false, escaped = false;
-  for (let i = start; i < html.length; i++) {
-    const ch = html[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') inString = true;
-    else if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) return html.slice(start, i + 1);
-    }
-  }
-  return null;
-}
-
-// Recursively search a parsed JSON node for a live videoViewCountRenderer
-// and return its viewer count. Handles both response shapes YouTube sends
-// for the count text: an array of `runs` or a plain `simpleText` string.
-function findLiveViewerCount(node) {
-  if (!node || typeof node !== 'object') return null;
-
-  if (node.videoViewCountRenderer?.isLive) {
-    const vc = node.videoViewCountRenderer.viewCount;
-    const text = vc?.runs?.length
-      ? vc.runs.map(r => r.text || '').join('')
-      : (vc?.simpleText || '');
-    const digits = text.replace(/[^\d]/g, '');
-    if (digits) return parseInt(digits, 10);
-  }
-
-  for (const key in node) {
-    const val = node[key];
-    if (val && typeof val === 'object') {
-      const found = findLiveViewerCount(val);
-      if (found !== null) return found;
-    }
-  }
-  return null;
-}
-
-// Everything below `twoColumnWatchNextResults.results.results.contents` is
-// the page's PRIMARY column — the video's own title/description/info cards.
-// `twoColumnWatchNextResults.secondaryResults` is the separate "up next" /
-// recommended sidebar, which can list a completely different video that also
-// happens to be live right now. A plain whole-page search can't tell those
-// two isLive:true counts apart and may grab the sidebar video's viewer
-// count instead of the actual stream's (this was the bug: an unrelated
-// live video's total showing up instead of "how many people are watching
-// THIS stream"). Scoping the search to the primary column only rules that
-// out, while still tolerating layout variance (A/B tests, mobile-style
-// rendering) *inside* that column via the recursive key-name search above.
-function findMainColumnViewerCount(parsed) {
-  const mainColumn =
-    parsed?.contents?.twoColumnWatchNextResults?.results?.results?.contents;
-  if (!mainColumn) return null;
-  return findLiveViewerCount(mainColumn);
-}
-
-function parseViewerCountFromHtml(html) {
+  let viewerCount = null;
   try {
-    const blob = extractJsonBlob(html, 'ytInitialData');
-    if (blob) {
-      const parsed = JSON.parse(blob);
-      // Prefer the scoped, unambiguous lookup; only fall back to a
-      // whole-page search (which can misfire on a live sidebar video, but
-      // beats showing nothing) if the expected primary-column shape isn't
-      // there at all — e.g. an unrecognized page layout.
-      const count = findMainColumnViewerCount(parsed) ?? findLiveViewerCount(parsed);
-      if (count !== null) return count;
+    const runs = lcc.header?.liveChatHeaderRenderer?.viewerCountText?.runs;
+    if (runs?.length) {
+      const text = runs.map(r => r.text || '').join('');
+      const m = text.match(/[\d,]+/);
+      if (m) viewerCount = parseInt(m[0].replace(/,/g, ''), 10);
     }
-  } catch { /* malformed/partial JSON — treat as "not found" this poll */ }
-  return null;
+  } catch { /* ignore */ }
+
+  return { chatItems, deletedIds, continuation, viewerCount };
 }
 
 export class LiveChat extends EventEmitter {
@@ -317,7 +217,6 @@ export class LiveChat extends EventEmitter {
   #interval;
   #options = null;
   #timer = null;
-  #viewerTimer = null;
 
   constructor(id, interval = 1000) {
     super();
@@ -336,14 +235,6 @@ export class LiveChat extends EventEmitter {
       this.#options = parsePage(html);
       this.liveId = this.#options.liveId;
       this.#timer = setInterval(() => this.#execute(), this.#interval);
-
-      // Viewer count: we already have the watch page's HTML right here, so
-      // use it for an immediate first reading, then keep it fresh on its
-      // own slower timer (no point re-fetching the whole page every second).
-      const initialCount = parseViewerCountFromHtml(html);
-      if (initialCount !== null) this.emit('viewerCount', initialCount);
-      this.#viewerTimer = setInterval(() => this.#pollViewerCount(), 20_000);
-
       this.emit('start', this.liveId);
       return true;
     } catch (err) {
@@ -353,21 +244,11 @@ export class LiveChat extends EventEmitter {
   }
 
   stop(reason) {
-    if (this.#viewerTimer) { clearInterval(this.#viewerTimer); this.#viewerTimer = null; }
     if (this.#timer) {
       clearInterval(this.#timer);
       this.#timer = null;
       this.emit('end', reason);
     }
-  }
-
-  async #pollViewerCount() {
-    if (!this.liveId) return;
-    try {
-      const html = await fetchText(`https://www.youtube.com/watch?v=${this.liveId}`);
-      const count = parseViewerCountFromHtml(html);
-      if (count !== null) this.emit('viewerCount', count);
-    } catch { /* transient network hiccup — next tick retries */ }
   }
 
   async #execute() {
@@ -378,10 +259,11 @@ export class LiveChat extends EventEmitter {
         context: { client: { clientVersion: this.#options.clientVersion, clientName: 'WEB' } },
         continuation: this.#options.continuation,
       });
-      const { chatItems, deletedIds, continuation } = parseChatData(res);
+      const { chatItems, deletedIds, continuation, viewerCount } = parseChatData(res);
       this.#options.continuation = continuation;
       chatItems.forEach(item => this.emit('chat', item));
       deletedIds.forEach(id => this.emit('delete', id));
+      if (viewerCount !== null) this.emit('viewerCount', viewerCount);
     } catch (err) {
       this.emit('error', err);
     }

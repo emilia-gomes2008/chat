@@ -1,8 +1,6 @@
 const params = new URLSearchParams(location.search);
-const channelId     = params.get('channelId');
-const liveId        = params.get('liveId');
-const twitchChannel = params.get('twitchChannel');
-const tiktokUsername = params.get('tiktokUsername');
+const channelId = params.get('channelId');
+const liveId    = params.get('liveId');
 const MAX_MESSAGES = 30;
 
 const setupEl    = document.getElementById('setup');
@@ -43,7 +41,7 @@ function setMsgBg(css) {
   currentBgValue = css;
   document.documentElement.style.setProperty('--msg-bg', css);
 }
-if (channelId || liveId || twitchChannel || tiktokUsername) {
+if (channelId || liveId) {
   applyStyles();
   runOverlay();
 } else {
@@ -441,17 +439,6 @@ async function runSetup() {
   });
   applyBorder();
 
-  // ── Platform icon toggle (live preview feedback) ──────────
-  const showPlatformIconCheckbox = document.getElementById('show-platform-icon');
-  const fpPlatformIcon = document.getElementById('fp-platform-icon');
-  if (showPlatformIconCheckbox && fpPlatformIcon) {
-    const syncPlatformIconPreview = () => {
-      fpPlatformIcon.style.display = showPlatformIconCheckbox.checked ? '' : 'none';
-    };
-    showPlatformIconCheckbox.addEventListener('change', syncPlatformIconPreview);
-    syncPlatformIconPreview();
-  }
-
   // ── Text colour ───────────────────────────────────────────
   const textColorInput = document.getElementById('text-color');
   const applyTextColor = () => document.documentElement.style.setProperty('--text-color', textColorInput.value);
@@ -494,17 +481,10 @@ async function runSetup() {
   document.getElementById('go-btn').addEventListener('click', () => {
     const type  = document.getElementById('id-type').value;
     const value = document.getElementById('id-value').value.trim();
-    const twitchChannelVal  = document.getElementById('twitch-channel')?.value.trim() || '';
-    const tiktokUsernameVal = document.getElementById('tiktok-username')?.value.trim() || '';
-    if (!value && !twitchChannelVal && !tiktokUsernameVal) {
-      document.getElementById('id-value').focus();
-      return;
-    }
+    if (!value) { document.getElementById('id-value').focus(); return; }
 
     const p = new URLSearchParams({
-      ...(value ? { [type]: value } : {}),
-      ...(twitchChannelVal  ? { twitchChannel: twitchChannelVal }   : {}),
-      ...(tiktokUsernameVal ? { tiktokUsername: tiktokUsernameVal } : {}),
+      [type]: value,
       font:            fontSelect.value,
       fontSize:        sizeSlider.value,
       'color-chatter': colorInputs.chatter.value.slice(1),
@@ -534,13 +514,12 @@ async function runSetup() {
       ...(textStyles.italic    ? { textItalic:    '1' } : {}),
       ...(textStyles.underline ? { textUnderline: '1' } : {}),
       ...(document.getElementById('show-viewers')?.checked ? { showViewers: '1' } : {}),
-      ...(document.getElementById('show-platform-icon')?.checked === false ? { platformIcon: '0' } : {}),
     });
     const serverBase = serverUrlInput.value.trim().replace(/\/$/, '') || location.origin;
     const url = `${serverBase}/overlay?${p.toString()}`;
-    // Sanity-check: overlay requires at least one source in the URL
-    if (!url.includes('channelId=') && !url.includes('liveId=') && !url.includes('twitchChannel=') && !url.includes('tiktokUsername=')) {
-      alert('Error: enter a YouTube channel/video ID, a Twitch channel, or a TikTok username before generating the URL.');
+    // Sanity-check: overlay requires channelId or liveId in the URL
+    if (!url.includes('channelId=') && !url.includes('liveId=')) {
+      alert('Error: enter a channel ID before generating the URL.');
       return;
     }
     document.getElementById('url-text').textContent = url;
@@ -611,13 +590,6 @@ function startFnafStatic() {
   tick();
 }
 
-// ── Platform icons (shown next to the author's name) ────────────
-const PLATFORM_ICONS = {
-  youtube: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><polygon points="9,7 9,17 17,12" fill="white"/></svg>')}`,
-  twitch: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#9146FF"/><path d="M7 5L5.5 8.5V18H9v2l3-2h2.5L18 14V5H7zm9 8.5l-2 2h-2.5L10 17v-1.5H7.5V6.5h8.5v7z" fill="white"/><rect x="12" y="8" width="1.3" height="3.6" fill="#9146FF"/><rect x="15" y="8" width="1.3" height="3.6" fill="#9146FF"/></svg>')}`,
-  tiktok: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#010101"/><path d="M15.7 5c.4 1.6 1.5 2.7 3.1 2.9v2.1c-1.1 0-2.2-.4-3.1-1v5.3c0 2.3-1.8 4-4.1 4-2.3 0-4.1-1.7-4.1-4s1.8-4 4.1-4c.3 0 .5 0 .8.1v2.2c-.3-.1-.5-.1-.8-.1-1 0-1.9.8-1.9 1.8s.9 1.8 1.9 1.8 1.9-.8 1.9-1.8V5h2.2z" fill="white"/></svg>')}`,
-};
-
 // ── Chat overlay ──────────────────────────────────────────────
 const seenIds = new Set();
 const msgElements = new Map(); // id → DOM element, for targeted deletion
@@ -634,12 +606,7 @@ function runOverlay() {
 
     ws.addEventListener('open', () => {
       reconnectDelay = 1000;
-      const startMsg = { type: 'start' };
-      if (channelId) startMsg.youtube = { channelId };
-      else if (liveId) startMsg.youtube = { liveId };
-      if (twitchChannel) startMsg.twitch = { channel: twitchChannel };
-      if (tiktokUsername) startMsg.tiktok = { username: tiktokUsername };
-      ws.send(JSON.stringify(startMsg));
+      ws.send(JSON.stringify(channelId ? { type: 'start', channelId } : { type: 'start', liveId }));
     });
 
     ws.addEventListener('message', ({ data }) => {
@@ -675,7 +642,7 @@ function runOverlay() {
 }
 
 // ── Render a message ──────────────────────────────────────────
-function addMessage({ id, author, avatar, message, parts, role, badgeIcon, superchat, timestamp, platform }) {
+function addMessage({ id, author, avatar, message, parts, role, badgeIcon, superchat, timestamp }) {
   const el = document.createElement('div');
   el.className = `message ${role}${superchat ? ' superchat' : ''}`;
   if (params.get('preset') === 'fnaf') {
@@ -702,16 +669,6 @@ function addMessage({ id, author, avatar, message, parts, role, badgeIcon, super
   const name = document.createElement('span');
   name.className = 'name';
   name.appendChild(document.createTextNode(author));
-  // Platform icon after the name — optional, controlled by the "platformIcon"
-  // URL param (missing/'1' = shown, '0' = hidden), set from the setup screen.
-  if (platform && PLATFORM_ICONS[platform] && params.get('platformIcon') !== '0') {
-    const platformIcon = document.createElement('img');
-    platformIcon.className = 'platform-icon';
-    platformIcon.alt = platform;
-    platformIcon.title = platform;
-    platformIcon.src = PLATFORM_ICONS[platform];
-    name.appendChild(platformIcon);
-  }
 
   if (role === 'mod' || role === 'member') {
     const icon = document.createElement('img');
