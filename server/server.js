@@ -317,11 +317,13 @@ function startAll(cfg) {
 
 // ── WebSocket clients ─────────────────────────────────────────────
 wss.on('connection', (ws) => {
+  console.log(`[ws] Browser connected (${clients.size + 1} total).`);
   clients.add(ws);
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (raw) => {
+    console.log('[ws] Message from browser:', raw.toString());
     try {
       const msg = JSON.parse(raw);
       if (msg.type === 'start') {
@@ -330,11 +332,12 @@ wss.on('connection', (ws) => {
         if (msg.twitch && msg.twitch.channel) cfg.twitch = msg.twitch;
         if (msg.tiktok && msg.tiktok.username) cfg.tiktok = msg.tiktok;
         if (Object.keys(cfg).length) startAll(cfg);
+        else console.log('[ws] "start" received but had no usable youtube/twitch/tiktok fields:', msg);
       }
-    } catch { /* ignore malformed messages */ }
+    } catch (err) { console.log('[ws] Could not parse message as JSON:', err.message); }
   });
 
-  ws.on('close', () => clients.delete(ws));
+  ws.on('close', () => { console.log(`[ws] Browser disconnected (${clients.size - 1} total).`); clients.delete(ws); });
   ws.on('error', () => clients.delete(ws));
 
   // Send current connection status per active platform to newly joined client
@@ -362,6 +365,18 @@ app.get('/overlay', (req, res) => {
 });
 
 // ── Start server ──────────────────────────────────────────────────
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error('╔══════════════════════════════════════════════════════════════╗');
+    console.error('  ERRO: a porta 3000 já está a ser usada por outro programa.');
+    console.error('  Provavelmente há outra cópia deste overlay já aberta noutra');
+    console.error('  janela (ou a correr escondida em segundo plano).');
+    console.error('  Fecha TODAS as janelas/processos "chat-overlay" e tenta de novo.');
+    console.error('╚══════════════════════════════════════════════════════════════╝');
+  } else {
+    console.error('SERVER ERROR:', err.message);
+  }
+});
 server.listen(3000, '0.0.0.0', () => {
   console.log('YouTube Live Chat overlay: http://localhost:3000');
 });
