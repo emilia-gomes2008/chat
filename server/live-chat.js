@@ -204,9 +204,14 @@ function parseChatData(data) {
 // Reliable viewer count source: parse the watch page's embedded ytInitialData
 // JSON and walk it by key, instead of regex-scanning raw HTML text.
 //
-// Earlier regex-based attempts at this kept breaking in different ways:
+// Earlier attempts at this kept breaking in different ways:
 //   1. Scanning the whole page for "X watching" can match an unrelated,
-//      smaller live stream in the sidebar of recommended videos.
+//      smaller (or bigger) live stream recommended in the sidebar. Checking
+//      isLive alone doesn't rule this out — a sidebar video can genuinely
+//      be live too, and its own isLive:true count would win the search
+//      before ever reaching the real one, depending on JSON key order. This
+//      is fixed below by scoping the search to the page's primary column
+//      only, never the sidebar's `secondaryResults`.
 //   2. `videoDetails.viewCount` is NOT concurrent viewers — for a live
 //      stream it's the cumulative lifetime view count, which keeps
 //      climbing and reads much higher than the real number.
@@ -214,8 +219,9 @@ function parseChatData(data) {
 //      page locale (e.g. Portuguese "a ver agora"), and a "nearby text
 //      window" fallback can grab an unrelated number instead.
 // Real JSON parsing sidesteps all three: we find the exact renderer by its
-// key name, check its own isLive flag, and read its own viewCount runs —
-// regardless of language or of what else happens to be nearby in the HTML.
+// key name inside the correct part of the page, check its own isLive flag,
+// and read its own viewCount — regardless of language or of what else
+// happens to be nearby in the HTML.
 
 // Extract a `"varName":{...}` or `var varName = {...}` JSON blob from HTML by
 // scanning for balanced braces (respecting quoted strings), since a plain
@@ -246,19 +252,19 @@ function extractJsonBlob(html, varName) {
   return null;
 }
 
-// Recursively search a parsed ytInitialData tree for a live videoViewCountRenderer
-// and return its viewer count. Searching by key name (rather than assuming one
-// fixed path like twoColumnWatchNextResults) is resilient to YouTube serving a
-// slightly different page layout (A/B tests, mobile-style rendering, etc.).
+// Recursively search a parsed JSON node for a live videoViewCountRenderer
+// and return its viewer count. Handles both response shapes YouTube sends
+// for the count text: an array of `runs` or a plain `simpleText` string.
 function findLiveViewerCount(node) {
   if (!node || typeof node !== 'object') return null;
 
   if (node.videoViewCountRenderer?.isLive) {
-    const runs = node.videoViewCountRenderer.viewCount?.runs;
-    if (runs?.length) {
-      const digits = runs.map(r => r.text || '').join('').replace(/[^\d]/g, '');
-      if (digits) return parseInt(digits, 10);
-    }
+    const vc = node.videoViewCountRenderer.viewCount;
+    const text = vc?.runs?.length
+      ? vc.runs.map(r => r.text || '').join('')
+      : (vc?.simpleText || '');
+    const digits = text.replace(/[^\d]/g, '');
+    if (digits) return parseInt(digits, 10);
   }
 
   for (const key in node) {
@@ -271,11 +277,34 @@ function findLiveViewerCount(node) {
   return null;
 }
 
+// Everything below `twoColumnWatchNextResults.results.results.contents` is
+// the page's PRIMARY column — the video's own title/description/info cards.
+// `twoColumnWatchNextResults.secondaryResults` is the separate "up next" /
+// recommended sidebar, which can list a completely different video that also
+// happens to be live right now. A plain whole-page search can't tell those
+// two isLive:true counts apart and may grab the sidebar video's viewer
+// count instead of the actual stream's (this was the bug: an unrelated
+// live video's total showing up instead of "how many people are watching
+// THIS stream"). Scoping the search to the primary column only rules that
+// out, while still tolerating layout variance (A/B tests, mobile-style
+// rendering) *inside* that column via the recursive key-name search above.
+function findMainColumnViewerCount(parsed) {
+  const mainColumn =
+    parsed?.contents?.twoColumnWatchNextResults?.results?.results?.contents;
+  if (!mainColumn) return null;
+  return findLiveViewerCount(mainColumn);
+}
+
 function parseViewerCountFromHtml(html) {
   try {
     const blob = extractJsonBlob(html, 'ytInitialData');
     if (blob) {
-      const count = findLiveViewerCount(JSON.parse(blob));
+      const parsed = JSON.parse(blob);
+      // Prefer the scoped, unambiguous lookup; only fall back to a
+      // whole-page search (which can misfire on a live sidebar video, but
+      // beats showing nothing) if the expected primary-column shape isn't
+      // there at all — e.g. an unrecognized page layout.
+      const count = findMainColumnViewerCount(parsed) ?? findLiveViewerCount(parsed);
       if (count !== null) return count;
     }
   } catch { /* malformed/partial JSON — treat as "not found" this poll */ }
