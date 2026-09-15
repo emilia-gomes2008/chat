@@ -198,11 +198,6 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
-  // Note: the live chat header's viewerCountText is a different, often
-  // inflated/stale metric from YouTube's "X watching now" counter shown
-  // below the video. It is intentionally not used here — see
-  // server.js's pollWatchingNow(), which reads the correct field.
-
   return { chatItems, deletedIds, continuation };
 }
 

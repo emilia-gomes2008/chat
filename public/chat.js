@@ -462,7 +462,6 @@ async function runSetup() {
       ...(textStyles.bold      ? { textBold:      '1' } : {}),
       ...(textStyles.italic    ? { textItalic:    '1' } : {}),
       ...(textStyles.underline ? { textUnderline: '1' } : {}),
-      ...(document.getElementById('show-viewers')?.checked ? { showViewers: '1' } : {}),
     });
     const serverBase = serverUrlInput.value.trim().replace(/\/$/, '') || location.origin;
     const url = `${serverBase}/overlay?${p.toString()}`;
@@ -568,13 +567,6 @@ function runOverlay() {
         } else if (msg.type === 'delete' && msg.id) {
           const el = msgElements.get(msg.id);
           if (el) { el.remove(); msgElements.delete(msg.id); }
-        } else if (msg.type === 'viewerCount' && params.get('showViewers') === '1') {
-          const vcEl = document.getElementById('viewer-count');
-          const vcNum = document.getElementById('viewer-num');
-          if (vcEl && vcNum) {
-            vcEl.classList.remove('hidden');
-            vcNum.textContent = msg.count;
-          }
         }
       } catch (e) { console.error('[chat]', e); }
     });
