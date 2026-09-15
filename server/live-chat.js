@@ -198,17 +198,12 @@ function parseChatData(data) {
     contData?.timedContinuationData?.continuation        ||
     '';
 
-  let viewerCount = null;
-  try {
-    const runs = lcc.header?.liveChatHeaderRenderer?.viewerCountText?.runs;
-    if (runs?.length) {
-      const text = runs.map(r => r.text || '').join('');
-      const m = text.match(/[\d,]+/);
-      if (m) viewerCount = parseInt(m[0].replace(/,/g, ''), 10);
-    }
-  } catch { /* ignore */ }
+  // Note: the live chat header's viewerCountText is a different, often
+  // inflated/stale metric from YouTube's "X watching now" counter shown
+  // below the video. It is intentionally not used here — see
+  // server.js's pollWatchingNow(), which reads the correct field.
 
-  return { chatItems, deletedIds, continuation, viewerCount };
+  return { chatItems, deletedIds, continuation };
 }
 
 export class LiveChat extends EventEmitter {
@@ -259,11 +254,10 @@ export class LiveChat extends EventEmitter {
         context: { client: { clientVersion: this.#options.clientVersion, clientName: 'WEB' } },
         continuation: this.#options.continuation,
       });
-      const { chatItems, deletedIds, continuation, viewerCount } = parseChatData(res);
+      const { chatItems, deletedIds, continuation } = parseChatData(res);
       this.#options.continuation = continuation;
       chatItems.forEach(item => this.emit('chat', item));
       deletedIds.forEach(id => this.emit('delete', id));
-      if (viewerCount !== null) this.emit('viewerCount', viewerCount);
     } catch (err) {
       this.emit('error', err);
     }

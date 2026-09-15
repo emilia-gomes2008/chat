@@ -105,6 +105,55 @@ let currentConfig = null;
 let retryTimer = null;
 let retryCount = 0;
 let sessionId = 0; // incremented on each startChat to discard stale events
+let viewerCountTimer = null;
+
+function stopViewerCountPolling() {
+  if (viewerCountTimer) { clearInterval(viewerCountTimer); viewerCountTimer = null; }
+}
+
+// Extracts YouTube's own "X watching now" ("a ver agora") live counter.
+// This is a DIFFERENT field from the total video view count, and also
+// different from the live chat panel's header count (which can be a
+// stale/inflated separate metric). We specifically require the
+// videoViewCountRenderer block AND an adjacent "isLive":true so we never
+// accidentally pick up the lifetime view count.
+function extractWatchingNow(html) {
+  const idx = html.indexOf('videoViewCountRenderer');
+  if (idx === -1) return null;
+  const window = html.slice(idx, idx + 400);
+  if (!/"isLive":true/.test(window)) return null;
+  const m = window.match(/"runs":\[\{"text":"([\d,]+)"/);
+  if (!m) return null;
+  const n = parseInt(m[1].replace(/,/g, ''), 10);
+  return isNaN(n) ? null : n;
+}
+
+function pollViewerCount(liveId, mySession) {
+  if (sessionId !== mySession || !liveId) return;
+  const req = https.get(`https://www.youtube.com/watch?v=${liveId}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate',
+    },
+  }, (res) => {
+    const enc = res.headers['content-encoding'] || '';
+    let stream = res;
+    if (enc.includes('gzip')) stream = res.pipe(zlib.createGunzip());
+    else if (enc.includes('deflate')) stream = res.pipe(zlib.createInflate());
+    const chunks = [];
+    stream.on('data', c => chunks.push(c));
+    stream.on('end', () => {
+      if (sessionId !== mySession) return;
+      const html = Buffer.concat(chunks).toString('utf-8');
+      const count = extractWatchingNow(html);
+      if (count !== null) broadcast({ type: 'viewerCount', count });
+    });
+    stream.on('error', () => {});
+  });
+  req.on('error', () => {});
+  req.setTimeout(8000, () => req.destroy());
+}
 
 function broadcast(data) {
   const msg = JSON.stringify(data);
@@ -144,6 +193,7 @@ function fetchBase64(url) {
 async function startChat(config) {
   if (liveChat) { liveChat.stop(); liveChat = null; }
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  stopViewerCountPolling();
 
   currentConfig = config;
   const mySession = ++sessionId;
@@ -233,6 +283,12 @@ async function startChat(config) {
     } else {
       console.log('[chat] Connected to live chat!');
       broadcast({ type: 'status', status: 'connected' });
+      // Poll YouTube's watch page for the "watching now" counter (every 20s)
+      const vid = liveChat.liveId;
+      if (vid) {
+        pollViewerCount(vid, mySession);
+        viewerCountTimer = setInterval(() => pollViewerCount(vid, mySession), 20_000);
+      }
     }
   } catch (err) {
     console.error('[chat] Startup error:', err.message);
